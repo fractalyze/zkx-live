@@ -4,8 +4,13 @@
 //
 // Endpoints:
 //   GET  /health             → {ok: true}
-//   POST /witness/intent
-//   POST /witness/bounty
+//   GET  /circuits           → {circuits: ["intent", "bounty"]}
+//   POST /intent             → witness for the intent circuit
+//   POST /bounty             → witness for the bounty circuit
+//
+// The service host already implies "this is the witness service" — no need
+// for a /witness/ prefix on every URL. Adding a circuit means: drop a builder
+// in BUILDERS below, the route is registered automatically.
 //
 // Request bodies are documented in intent/builder.js / bounty/builder.js JSDoc.
 //
@@ -107,19 +112,23 @@ app.use(express.json({ limit: '1mb' }));
 
 app.get('/health', (_req, res) => res.json({ ok: true }));
 
-app.post('/witness/:circuit', async (req, res) => {
-    try {
-        const out = await handleWitness(req.params.circuit, req.body);
-        console.log(
-            `[witness] /${req.params.circuit} build=${out.timing_ms.build_input}ms` +
-            ` witness=${out.timing_ms.witness_gen}ms`,
-        );
-        res.json(out);
-    } catch (e) {
-        console.error(`[witness] error: ${e.stack ?? e.message}`);
-        res.status(500).json({ error: e.message });
-    }
-});
+app.get('/circuits', (_req, res) => res.json({ circuits: Object.keys(BUILDERS) }));
+
+for (const circuit of Object.keys(BUILDERS)) {
+    app.post(`/${circuit}`, async (req, res) => {
+        try {
+            const out = await handleWitness(circuit, req.body);
+            console.log(
+                `[witness] /${circuit} build=${out.timing_ms.build_input}ms` +
+                ` witness=${out.timing_ms.witness_gen}ms`,
+            );
+            res.json(out);
+        } catch (e) {
+            console.error(`[witness] error: ${e.stack ?? e.message}`);
+            res.status(500).json({ error: e.message });
+        }
+    });
+}
 
 app.use((_req, res) => res.status(404).json({ error: 'not found' }));
 

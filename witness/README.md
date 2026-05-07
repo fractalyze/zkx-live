@@ -58,7 +58,18 @@ fields (we coerce with `String(x)`).
 {"ok": true}
 ```
 
-### `POST /witness/intent`
+### `GET /circuits`
+
+Lists the circuits this service knows about.
+
+```json
+{"circuits": ["intent", "bounty"]}
+```
+
+Useful for self-discovery — clients can build the request URL with
+`${SERVICE}/${circuit}` instead of hardcoding endpoint names.
+
+### `POST /intent`
 
 Request body:
 
@@ -116,7 +127,7 @@ The caller passes `wtns_path` to the prover service:
 curl -s :8000/prove -d '{"witness_path":"/tmp/zkx-snap/intent_xxx.wtns"}'
 ```
 
-### `POST /witness/bounty`
+### `POST /bounty`
 
 Same shape as `intent` plus the attestation layer. The `intent`
 sub-object replaces `cluster_id`/`min_valid_nonce` with `window_start`
@@ -170,7 +181,7 @@ in `public_inputs` (the BabyJubjub pubkey of the signing attestor).
 ## What happens per request
 
 ```
-   POST /witness/<circuit>
+   POST /<circuit>
             │
             ▼
    builder(body, deps)        ← intent/builder.js or bounty/builder.js
@@ -203,11 +214,18 @@ Typical per-request timing (16k-constraint bounty):
 
 ```
 witness/
-  app.js                 Express HTTP entry — wraps the two builders
-  intent/builder.js          buildInput() — pure function, takes init'd
-                         circomlibjs primitives via `deps`
-  bounty/builder.js         buildInput() — same, plus EdDSA + claim layer
-  util.js                shared helpers: b58 decode, Merkle build/proof
+  app.js                 Express HTTP entry — wraps the builders
+  intent/
+    builder.js           buildInput() — pure function, deps via `deps`
+    builder.test.js      unit tests
+  bounty/
+    builder.js           buildInput() — same, plus EdDSA + claim layer
+    builder.test.js      unit tests
+  lib/
+    util.js              shared helpers: b58 decode, Merkle build/proof
+    util.test.js         unit tests
+  e2e/
+    e2e.test.js          spawns the service, hits the real HTTP endpoints
   package.json           "type": "module" — deps: express, circomlibjs
   README.md              this file
 ```
@@ -220,7 +238,7 @@ Two services, two roles:
 
 ```
 apps/click_to_paid.py
-  ├─ POST :7001/witness/bounty {high-level intent + claim}
+  ├─ POST :7001/bounty {high-level intent + claim}
   │      → {wtns_path, public_inputs, timing}
   ├─ POST :8000/prove {wtns_path}
   │      → {proof, public_signals, timing}
