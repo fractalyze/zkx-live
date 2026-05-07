@@ -1,7 +1,7 @@
 pragma circom 2.1.6;
 
 // =============================================================================
-// pay_static.circom — V1: Pay action with static allowlist
+// pay_intent.circom — Pay action with intent-bound static allowlist
 //
 // Statement: An SPL token transfer of `amount` to `recipient` satisfies the
 // user-signed IntentBundle: recipient ∈ allowlist (Merkle), amount ≤ cap,
@@ -16,7 +16,7 @@ include "circomlib/circuits/comparators.circom";
 include "lib/merkle.circom";
 include "lib/instruction_encode.circom";
 
-template PayStatic(merkleDepth) {
+template PayIntent(merkleDepth) {
     // ---- PUBLIC OUTPUTS (fixed schema across all circuits) ----
     signal output vk_id;                          // [0]
     signal output intent_root;                    // [1]
@@ -148,4 +148,4 @@ template PayStatic(merkleDepth) {
 
 component main {
     public [intent_root_pub, recipient, amount, now]
-} = PayStatic(8);
+} = PayIntent(8);

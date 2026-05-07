@@ -1,4 +1,4 @@
-// Witness-ready input.json for pay_with_self_attest.circom (V5).
+// Witness-ready input.json for pay_with_attestation.circom.
 //
 // Self-attestor signs (user_id, repo_hash, timestamp) compressed via Poseidon
 // using EdDSA over BabyJubjub — SNARK-native ~3.5k constraints.

@@ -4,7 +4,7 @@ End-to-end flow:
   1. Spin up solana-test-validator --reset
   2. Deploy gateway + verifier-groth16-bn254 programs
   3. Set up SPL: mint + source/destination token accounts (via `spl-token` CLI)
-  4. Generate a fresh V1 (pay_static) proof binding the destination token
+  4. Generate a fresh the intent circuit proof binding the destination token
      account as the policy recipient
   5. Upload VK to verifier; register intent on gateway
   6. Atomic tx: `execute_intent + sibling SPL Transfer`
@@ -122,7 +122,7 @@ def _run(validator: lib.Validator) -> int:
 
     src_ata_pk = Pubkey.from_string(src_ata)
 
-    # --- proof generation (V1 pay_static) ---
+    # --- proof generation (pay_intent) ---
     input_json = BUILD / "input.json"
     wtns = BUILD / "witness.wtns"
     proof_path = BUILD / "proof.json"
@@ -140,19 +140,19 @@ def _run(validator: lib.Validator) -> int:
         cwd=str(CIRCUITS),
     )
     lib.gen_witness(
-        CIRCUITS / "build" / "pay_static_js" / "pay_static.wasm",
+        CIRCUITS / "build" / "pay_intent_js" / "pay_intent.wasm",
         input_json,
         wtns,
     )
     lib.gen_proof(
-        CIRCUITS / "build" / "pay_static_final.zkey",
+        CIRCUITS / "build" / "pay_intent_final.zkey",
         wtns,
         proof_path,
         pub_path,
     )
 
     # --- VK upload + intent registration ---
-    vk_json = json.loads((CIRCUITS / "build" / "pay_static_vk.json").read_text())
+    vk_json = json.loads((CIRCUITS / "build" / "pay_intent_vk.json").read_text())
     vk_bytes = lib.serialize_vk(vk_json)
     config = lib.upload_vk(client, payer, vk_bytes, schema_id=0, nr_pubinputs=20)
 

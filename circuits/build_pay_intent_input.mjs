@@ -1,4 +1,4 @@
-// Generate a witness-ready input.json for pay_static.circom (V1).
+// Generate a witness-ready input.json for pay_intent.circom.
 // Takes a Solana recipient pubkey (32 bytes) — splits it into the two 16-byte
 // big-endian halves the circuit expects, builds a single-leaf-padded Merkle
 // tree (depth 8) so this recipient is in the allowlist, recomputes the intent

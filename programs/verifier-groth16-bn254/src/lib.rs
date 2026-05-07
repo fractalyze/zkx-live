@@ -17,7 +17,7 @@ declare_id!("Hy878UwGsJpw62Kxio3ySbDXQoy21dR8JgmFrEv338qj");
 #[derive(AnchorSerialize, AnchorDeserialize, Clone, Debug)]
 pub struct VerifyOutcome {
     /// Identifies how the gateway should decode `public_inputs` for action policy.
-    /// 0 = PaymentSchema (recipient[16,17] + amount[18])  — V1 pay_static layout
+    /// 0 = PaymentSchema (recipient[16,17] + amount[18])  — intent-circuit layout (20 publics)
     /// 1 = ReclaimPaymentSchema (V2 pay_with_reclaim layout, same recipient/amount slots)
     pub schema_id: u8,
     /// SHA-256 of the canonical public_inputs bytes — gateway recomputes and compares.
@@ -126,7 +126,7 @@ fn verify_inner(
     nr: usize,
 ) -> Result<()> {
     // Light Protocol's API takes a fixed-size array. Dispatch on the supported
-    // public-input counts we ship: 20 (pay_static) and 36 (pay_with_reclaim).
+    // public-input counts we ship: the variants we ship.
     match nr {
         20 => {
             let pubs: [[u8; 32]; 20] = public_inputs.try_into()

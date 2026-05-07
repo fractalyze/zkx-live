@@ -71,10 +71,10 @@ pub mod gateway {
     }
 
     /// Stage a proof + public_inputs into a temp PDA in a single tx (works
-    /// when `proof + public_inputs ≤ ~1100 B`, e.g. V1 pay_static).
+    /// when `proof + public_inputs ≤ ~1100 B`, e.g. the intent circuit).
     ///
     /// For circuits whose proof+pubs exceed a single tx's 1232 B data limit
-    /// (V2 pay_with_reclaim has 1408 B of blob), use `stage_chunk` instead —
+    /// (V2 the in-circuit Reclaim variant (deferred) has 1408 B of blob), use `stage_chunk` instead —
     /// each call init-allocates a fresh small PDA so init-time writes
     /// (which persist reliably) are sufficient. `execute_chunked_intent`
     /// then concatenates the chunk PDAs in order.
@@ -358,9 +358,9 @@ fn compute_nullifier(seed: &[u8; 32], schema_id: u8, pi_hash: &[u8; 32]) -> [u8;
 /// supported schemas. Slots are dictated by the snarkjs convention of
 /// "outputs first, then inputs":
 ///
-/// schema 0 (PaymentSchema, pay_static V1, 20 publics):
+/// schema 0 (PaymentSchema, intent circuit, 20 publics):
 ///   [16, 17] = recipient halves, [18] = amount
-/// schema 1 (ReclaimPaymentSchema, pay_with_reclaim V2, 36 publics):
+/// schema 1 (ReclaimPaymentSchema, the in-circuit Reclaim variant (deferred) V2, 36 publics):
 ///   The circuit injects 8 extra `attestor_pubkey_out` outputs before the
 ///   instruction-encoding outputs, AND 8 extra `attestor_pubkey` inputs at
 ///   the tail. So the recipient/amount triplet shifts by 8 → [24, 25, 26].
@@ -372,7 +372,7 @@ fn decode_payment_schema(
     let recipient_hi_slot = match schema_id {
         SCHEMA_PAYMENT => 16usize,
         SCHEMA_RECLAIM_PAYMENT => 24usize,
-        // V5 (pay_with_self_attest): 17 outputs (vk_id, intent_root, nullifier,
+        // the attestation circuit: 17 outputs (vk_id, intent_root, nullifier,
         // attestor_pubkey_out[2], program_id[2], accounts_hash[2], data[8])
         // followed by intent_root_pub, recipient[2], amount, ...
         SCHEMA_SELF_ATTEST => 18usize,
