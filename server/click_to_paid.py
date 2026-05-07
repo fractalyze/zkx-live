@@ -184,7 +184,7 @@ def main():
         wtns = BUILD / "witness.wtns"
         subprocess.run(
             [
-                str(CIRCUITS / "build/pay_with_attestation_cpp/pay_with_attestation"),
+                str(CIRCUITS / "build/star_bounty_cpp/star_bounty"),
                 str(input_json), str(wtns),
             ],
             check=True, capture_output=True,
@@ -212,7 +212,7 @@ def main():
 
         # 5. Submit Solana tx (gateway → verifier-groth16 CPI → SPL transfer)
         t = time.time()
-        vk_json = json.loads((CIRCUITS / "build/pay_with_attestation_vk.json").read_text())
+        vk_json = json.loads((CIRCUITS / "build/star_bounty_vk.json").read_text())
         vk_bytes = lib.serialize_vk(vk_json)
         config = lib.upload_vk(client, payer, vk_bytes, schema_id=2, nr_pubinputs=24)
 

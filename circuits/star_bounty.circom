@@ -1,7 +1,7 @@
 pragma circom 2.1.6;
 
 // =============================================================================
-// pay_with_attestation.circom — real-time demo with EdDSA-BabyJubjub
+// star_bounty.circom — real-time demo with EdDSA-BabyJubjub
 //
 // Same architecture / invariants as V4 (composed verification) but the
 // attestor signature scheme is BabyJubjub EdDSA + Poseidon — SNARK-native,
@@ -20,7 +20,7 @@ include "circomlib/circuits/eddsaposeidon.circom";
 include "lib/merkle.circom";
 include "lib/instruction_encode.circom";
 
-template PayWithAttestation(merkleDepth) {
+template StarBounty(merkleDepth) {
     // ---- PUBLIC OUTPUTS (same shape as V2/V4 for gateway compatibility) ----
     signal output vk_id;                          // = 4
     signal output intent_root;
@@ -166,4 +166,4 @@ template PayWithAttestation(merkleDepth) {
 
 component main {
     public [intent_root_pub, recipient, amount, now, attestor_Ax, attestor_Ay]
-} = PayWithAttestation(8);
+} = StarBounty(8);

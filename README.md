@@ -34,7 +34,7 @@ the bounds. Replay-protected via per-proof nullifier.
   spending guardrails — anywhere you want cryptographic enforcement of
   "agent X can spend up to Y to recipients in set Z".
 
-### 2. `pay_with_attestation` — attested-claim payment
+### 2. `star_bounty` — attested-claim payment
 
 > *Bounty pays out only when an attested off-chain event happened.*
 
@@ -45,7 +45,7 @@ the demo, **we** are the attestor (server-side check via the public
 GitHub API + sign with our key). For production, swap with Reclaim's
 MPC-attested secp256k1 — same circuit family, different attestor key.
 
-- **Circuit**: `circuits/pay_with_attestation.circom`
+- **Circuit**: `circuits/star_bounty.circom`
 - **Constraints**: 16,655
 - **Use case**: web2-attested bounties, sybil-resistant airdrops,
   reputation-gated grants, conditional payments based on external state.
@@ -56,7 +56,7 @@ what the attestation/intent layer commits to.
 
 ---
 
-## Real-time pipeline (`pay_with_attestation` demo)
+## Real-time pipeline (`star_bounty` demo)
 
 ```
 $ python server/click_to_paid.py octocat octocat/Hello-World
@@ -82,7 +82,7 @@ regular HTTPS round-trip.
 
 ---
 
-## Verification logic (`pay_with_attestation`, atomic in one ZK proof)
+## Verification logic (`star_bounty`, atomic in one ZK proof)
 
 1. **Attestor signature** (EdDSA-BabyJubjub, ~3.5 k constraints)
 2. **Intent commitment match** (Poseidon-9 over recipients_root, caps,
@@ -129,7 +129,7 @@ logic on attested data, all enforced atomically.
 │  Demo orchestrator — Python                                  │
 │  ─────────────────────────────────────────────────────────   │
 │  pay_intent demo: load fixture → witness → /prove → tx       │
-│  pay_with_attestation demo:                                  │
+│  star_bounty demo:                                           │
 │    1. Verify GitHub starred via public API                   │
 │    2. Self-attestor signs (EdDSA-BabyJubjub)                 │
 │    3. C++ witness gen (8 ms)                                 │
@@ -178,18 +178,18 @@ circom pay_intent.circom --r1cs --wasm -l node_modules -o build/
 ./node_modules/.bin/snarkjs groth16 setup build/pay_intent.r1cs ptau/pot22_hez.ptau build/pay_intent_0000.zkey
 ./node_modules/.bin/snarkjs zkey contribute build/pay_intent_0000.zkey build/pay_intent_final.zkey -e='snap'
 ./node_modules/.bin/snarkjs zkey export verificationkey build/pay_intent_final.zkey build/pay_intent_vk.json
-# pay_with_attestation
-circom pay_with_attestation.circom --r1cs --c -l node_modules -o build/
-./node_modules/.bin/snarkjs groth16 setup build/pay_with_attestation.r1cs ptau/pot22_hez.ptau build/pay_with_attestation_0000.zkey
-./node_modules/.bin/snarkjs zkey contribute build/pay_with_attestation_0000.zkey build/pay_with_attestation_final.zkey -e='snap'
-./node_modules/.bin/snarkjs zkey export verificationkey build/pay_with_attestation_final.zkey build/pay_with_attestation_vk.json
-( cd build/pay_with_attestation_cpp && make )
+# star_bounty
+circom star_bounty.circom --r1cs --c -l node_modules -o build/
+./node_modules/.bin/snarkjs groth16 setup build/star_bounty.r1cs ptau/pot22_hez.ptau build/star_bounty_0000.zkey
+./node_modules/.bin/snarkjs zkey contribute build/star_bounty_0000.zkey build/star_bounty_final.zkey -e='snap'
+./node_modules/.bin/snarkjs zkey export verificationkey build/star_bounty_final.zkey build/star_bounty_vk.json
+( cd build/star_bounty_cpp && make )
 ```
 
 Start the prover service (warm GPU, ~3.5 s startup):
 
 ```bash
-PROVER_ZKEY=$PWD/circuits/build/pay_with_attestation_final.zkey \
+PROVER_ZKEY=$PWD/circuits/build/star_bounty_final.zkey \
   python server/prover.py
 ```
 
@@ -214,9 +214,9 @@ programs/
 
 circuits/
   pay_intent.circom                 Demo 1: intent-bound payment
-  pay_with_attestation.circom       Demo 2: attested + intent payment
+  star_bounty.circom                Demo 2: GitHub-star bounty (attested + intent)
   build_pay_intent_input.mjs        Fixture builder for demo 1
-  build_pay_with_attestation_input.mjs   Fixture builder for demo 2
+  build_star_bounty_input.mjs   Fixture builder for demo 2
   lib/                              Shared circom libs (merkle, ix encoding)
   bench_zkx_warm.py                 Warm-prover benchmark
   bench_vanilla_only.mjs            snarkjs baseline benchmark
