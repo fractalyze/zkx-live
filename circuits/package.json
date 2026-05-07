@@ -3,6 +3,7 @@
   "version": "0.0.1",
   "description": "Circom circuits for zkx-snap — Groth16 BN254",
   "private": true,
+  "type": "module",
   "scripts": {
     "compile": "mkdir -p build && circom pay_static.circom --r1cs --wasm --sym -l node_modules -o build/",
     "info": "snarkjs r1cs info build/pay_static.r1cs",

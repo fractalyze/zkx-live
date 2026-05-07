@@ -227,7 +227,7 @@ circuits/
   lib/                              Shared circom libs (merkle, ix encoding)
   benchmarks/
     bench_zkx_warm.py               Warm-prover benchmark
-    bench_vanilla_only.mjs          snarkjs baseline benchmark
+    bench_vanilla_only.js          snarkjs baseline benchmark
 
 witness/                            Node HTTP service (input + witness gen)
   witness_service.mjs               Entry — listens :7001
