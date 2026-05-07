@@ -27,7 +27,7 @@ It exists for two reasons:
 ```bash
 cd witness
 npm install
-node witness_service.js          # listens on :7001
+node app.js                      # listens on :7001
 ```
 
 Required: the C++ witness binaries must already be built at
@@ -193,13 +193,12 @@ Typical per-request timing (16k-constraint star_bounty):
 
 ```
 witness/
-  witness_service.js     fastify-style HTTP entry (vanilla node:http,
-                         no extra deps) — wraps the two builders
+  app.js                 Express HTTP entry — wraps the two builders
   pay_intent.js          buildInput() — pure function, takes init'd
                          circomlibjs primitives via `deps`
   star_bounty.js         buildInput() — same, plus EdDSA + claim layer
   util.js                shared helpers: b58 decode, Merkle build/proof
-  package.json           "type": "module" — only dep is circomlibjs
+  package.json           "type": "module" — deps: express, circomlibjs
   README.md              this file
 ```
 

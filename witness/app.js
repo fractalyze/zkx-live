@@ -1,27 +1,24 @@
 // HTTP service: build input fixture (Poseidon/Merkle/EdDSA) + spawn the C++
-// witness generator that circom emits with --c. Single combined endpoint per
-// circuit so the Python orchestrator only sees one HTTP roundtrip per witness.
+// witness generator that circom emits with --c. One combined endpoint per
+// circuit so the orchestrator only sees one HTTP roundtrip per witness.
 //
 // Endpoints:
-//   GET  /health                        → {ok: true}
+//   GET  /health                    → {ok: true}
 //   POST /witness/pay_intent
 //   POST /witness/star_bounty
 //
-// Body shapes are defined by each builder — see pay_intent.mjs / star_bounty.mjs
-// JSDoc. Both take a signed `intent` bundle (with `allowlist`), per-request
-// fields (recipient_b58, amount, ...), and Solana account refs (wallet_pda,
-// recipient_token_account). star_bounty additionally takes a `claim` and
-// `attestor_priv_hex`.
+// Request bodies are documented in pay_intent.js / star_bounty.js JSDoc.
 //
 // Response:
-//   {wtns_path, input_path, public_inputs, timing_ms: {build_input, witness_gen, total}}
+//   {wtns_path, input_path, public_inputs,
+//    timing_ms: {build_input, witness_gen, total}}
 //
 // Env:
 //   WITNESS_PORT     (default 7001)
 //   CIRCUITS_DIR     (default ../circuits, resolved relative to this file)
 //   WITNESS_WORK_DIR (default /tmp/zkx-snap)
 
-import { createServer } from 'node:http';
+import express from 'express';
 import { spawn } from 'node:child_process';
 import { mkdir, writeFile } from 'node:fs/promises';
 import { existsSync } from 'node:fs';
@@ -105,49 +102,28 @@ async function handleWitness(circuit, body) {
     };
 }
 
-function readJsonBody(req) {
-    return new Promise((res, rej) => {
-        let buf = '';
-        req.on('data', (c) => { buf += c; });
-        req.on('end', () => {
-            try { res(buf ? JSON.parse(buf) : {}); }
-            catch (e) { rej(new Error('invalid JSON body')); }
-        });
-        req.on('error', rej);
-    });
-}
+const app = express();
+app.use(express.json({ limit: '1mb' }));
 
-function send(res, status, body) {
-    const b = JSON.stringify(body);
-    res.writeHead(status, {
-        'Content-Type': 'application/json',
-        'Content-Length': Buffer.byteLength(b),
-    });
-    res.end(b);
-}
+app.get('/health', (_req, res) => res.json({ ok: true }));
 
-const server = createServer(async (req, res) => {
+app.post('/witness/:circuit', async (req, res) => {
     try {
-        if (req.method === 'GET' && req.url === '/health') {
-            send(res, 200, { ok: true });
-            return;
-        }
-        const m = req.method === 'POST' && req.url?.match(/^\/witness\/([a-z_]+)$/);
-        if (m) {
-            const body = await readJsonBody(req);
-            const out = await handleWitness(m[1], body);
-            console.log(`[witness] /${m[1]} build=${out.timing_ms.build_input}ms witness=${out.timing_ms.witness_gen}ms`);
-            send(res, 200, out);
-            return;
-        }
-        send(res, 404, { error: 'not found' });
+        const out = await handleWitness(req.params.circuit, req.body);
+        console.log(
+            `[witness] /${req.params.circuit} build=${out.timing_ms.build_input}ms` +
+            ` witness=${out.timing_ms.witness_gen}ms`,
+        );
+        res.json(out);
     } catch (e) {
         console.error(`[witness] error: ${e.stack ?? e.message}`);
-        send(res, 500, { error: e.message });
+        res.status(500).json({ error: e.message });
     }
 });
 
-server.listen(PORT, '127.0.0.1', () => {
+app.use((_req, res) => res.status(404).json({ error: 'not found' }));
+
+app.listen(PORT, '127.0.0.1', () => {
     console.log(`[witness] ready  http://127.0.0.1:${PORT}`);
     console.log(`           CIRCUITS_DIR = ${CIRCUITS_DIR}`);
     console.log(`           WORK_DIR     = ${WORK_DIR}`);

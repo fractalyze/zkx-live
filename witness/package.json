@@ -5,9 +5,10 @@
   "type": "module",
   "description": "HTTP service: input fixture + witness gen for zkx-snap circuits.",
   "scripts": {
-    "start": "node witness_service.js"
+    "start": "node app.js"
   },
   "dependencies": {
-    "circomlibjs": "^0.1.7"
+    "circomlibjs": "^0.1.7",
+    "express": "^4.19.2"
   }
 }
