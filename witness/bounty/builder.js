@@ -41,7 +41,7 @@
 //   Twitter follow : subject=twitter_id, object="<followed_handle>"
 //   Plaid balance  : subject=account_id, object="balance≥50k"
 
-import { pubkeyToFields, buildPaddedMerkle, merkleProof } from '../util.js';
+import { pubkeyToFields, buildPaddedMerkle, merkleProof } from '../lib/util.js';
 
 const MERKLE_DEPTH = 8;
 const VK_ID = '4';
