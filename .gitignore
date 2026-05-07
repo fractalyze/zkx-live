@@ -1,0 +1,65 @@
+# node
+node_modules/
+*.log
+.npm
+.pnpm-store/
+dist/
+
+# rust / anchor / cargo (any nested target)
+**/target/
+**/*.rs.bk
+.anchor/
+test-ledger/
+
+# circom artifacts
+*.r1cs
+*.sym
+*.wasm
+*.zkey
+*.vkey
+*.ptau
+*.wtns
+*.dat
+*.so
+*.cpp
+*.hpp
+*.asm
+witness.wtns
+proof.json
+public.json
+verification_key.json
+
+# environment / secrets
+.env
+.env.local
+.env.*.local
+keypair.json
+!example-keypair.json
+!target/deploy/*-keypair.json
+
+# editor / OS
+.vscode/
+.idea/
+*.swp
+.DS_Store
+Thumbs.db
+
+# python
+__pycache__/
+*.pyc
+
+# zkx-snap specific
+circuits/deps/
+circuits/build/
+circuits/ptau/
+
+# Old experiments not part of the demo (kept locally, not pushed)
+prover-service/
+rabbitsnark-py/
+verifier-test/
+sdk/package-lock.json
+rabbitsnark-fix.patch
+
+# Track these specifically
+!keys/
+!keys/*-keypair.json

@@ -1,0 +1,7 @@
+Sub-circuits live here:
+- poseidon.circom (vendored from circomlib)
+- merkle.circom (Merkle membership verify)
+- comparators.circom (LessThan / LessEqThan from circomlib)
+- instruction_encode.circom (Solana SPL Transfer ix encoder)
+
+Will be added in Step 2 (W1 d1-3) of the build sequence.

@@ -1,0 +1,20 @@
+[package]
+name = "verifier-groth16-bn254"
+version = "0.1.0"
+description = "BN254 Groth16 verifier — Light Protocol wrap, callable via CPI from any gateway"
+edition = "2021"
+
+[lib]
+crate-type = ["cdylib", "lib"]
+name = "verifier_groth16_bn254"
+
+[features]
+no-entrypoint = []
+no-idl = []
+no-log-ix-name = []
+cpi = ["no-entrypoint"]
+default = []
+
+[dependencies]
+anchor-lang = "0.31.1"
+groth16-solana = "0.2.0"

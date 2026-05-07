@@ -1,0 +1,31 @@
+{
+  "name": "zkx-snap-circuits",
+  "version": "0.0.1",
+  "description": "Circom circuits for zkx-snap — Groth16 BN254",
+  "private": true,
+  "scripts": {
+    "compile": "mkdir -p build && circom pay_static.circom --r1cs --wasm --sym -l node_modules -o build/",
+    "info": "snarkjs r1cs info build/pay_static.r1cs",
+    "ptau:download": "mkdir -p ptau && wget -q https://hermez.s3-eu-west-1.amazonaws.com/powersOfTau28_hez_final_15.ptau -O ptau/pot15_final.ptau",
+    "setup": "snarkjs groth16 setup build/pay_static.r1cs ptau/pot15_final.ptau build/pay_static_0000.zkey",
+    "contribute": "snarkjs zkey contribute build/pay_static_0000.zkey build/pay_static_final.zkey -e='hackathon-throwaway-entropy'",
+    "vk:export": "snarkjs zkey export verificationkey build/pay_static_final.zkey build/pay_static_vk.json",
+    "build:all": "npm run compile && npm run info && npm run setup && npm run contribute && npm run vk:export",
+    "fixture": "node test/fixture.mjs",
+    "prove": "snarkjs groth16 fullprove test/input.json build/pay_static_js/pay_static.wasm build/pay_static_final.zkey build/proof.json build/public.json",
+    "verify": "snarkjs groth16 verify build/pay_static_vk.json build/public.json build/proof.json",
+    "bench:vanilla": "node test/bench_vanilla.mjs"
+  },
+  "dependencies": {
+    "@reclaimprotocol/js-sdk": "^5.4.0",
+    "circomlib": "^2.0.5",
+    "circomlibjs": "^0.1.7",
+    "snarkjs": "^0.7.4"
+  },
+  "devDependencies": {
+    "@types/node": "^20.0.0"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}

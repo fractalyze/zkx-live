@@ -1,0 +1,21 @@
+[package]
+name = "gateway"
+version = "0.1.0"
+description = "Universal proof-verified intent execution gateway for Solana (V3)"
+edition = "2021"
+
+[lib]
+crate-type = ["cdylib", "lib"]
+name = "gateway"
+
+[features]
+no-entrypoint = []
+no-idl = []
+no-log-ix-name = []
+cpi = ["no-entrypoint"]
+default = []
+
+[dependencies]
+anchor-lang = { version = "0.31.1", features = ["init-if-needed"] }
+bytemuck = { version = "1.20", features = ["derive"] }
+verifier-groth16-bn254 = { path = "../verifier-groth16-bn254", features = ["cpi", "no-entrypoint"] }
