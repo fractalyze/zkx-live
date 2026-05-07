@@ -21,12 +21,15 @@ into the same on-chain stack with no code change, only a new VK.
 
 ### 1. `pay_intent` — intent-bound payment
 
-> *AI agent wallet enforcing a signed spending policy.*
+> *ERC-8150-style intent-bound payment primitive on Solana, enforced by ZK.*
 
 Owner signs an intent bundle (recipient allowlist Merkle root, amount
 cap, max-per-recipient, expiry, asset, salt, nonce floor). Any agent
 holding a fresh ZK proof against this intent can spend, but only within
-the bounds. Replay-protected via per-proof nullifier.
+the bounds. Replay-protected via per-proof nullifier. The intent
+commitment shape mirrors [ERC-8150](https://eips.ethereum.org/EIPS/eip-8150)
+(intent-bound transactions) — adapted to Solana's account model and
+enforced cryptographically rather than by an EVM precompile.
 
 - **Circuit**: `circuits/pay_intent.circom`
 - **Constraints**: 8,726 (small)
