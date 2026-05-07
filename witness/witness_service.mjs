@@ -4,12 +4,17 @@
 //
 // Endpoints:
 //   GET  /health                        → {ok: true}
-//   POST /witness/pay_intent  body: {recipient_b58, amount}
-//   POST /witness/star_bounty body: {recipient_b58, amount, user_id, repo_full,
-//                                     attestor_priv_hex?}
+//   POST /witness/pay_intent
+//   POST /witness/star_bounty
+//
+// Body shapes are defined by each builder — see pay_intent.mjs / star_bounty.mjs
+// JSDoc. Both take a signed `intent` bundle (with `allowlist`), per-request
+// fields (recipient_b58, amount, ...), and Solana account refs (wallet_pda,
+// recipient_token_account). star_bounty additionally takes a `claim` and
+// `attestor_priv_hex`.
 //
 // Response:
-//   {wtns_path, public_inputs, timing_ms: {build_input, witness_gen, total}}
+//   {wtns_path, input_path, public_inputs, timing_ms: {build_input, witness_gen, total}}
 //
 // Env:
 //   WITNESS_PORT     (default 7001)

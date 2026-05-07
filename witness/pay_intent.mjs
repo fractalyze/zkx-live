@@ -1,101 +1,128 @@
 // Build witness-ready input for pay_intent.circom.
 //
-// Pure function — caller passes pre-initialized circomlibjs primitives so the
-// HTTP service can amortize the (~1s) buildPoseidon() cost across requests.
+// API:
+//   buildInput({
+//     recipient_b58,                       // required — must be in intent.allowlist
+//     amount,                              // required — string or number (u64)
+//     nonce,                               // required — replay token; circuit checks ≥ intent.min_valid_nonce
+//     now,                                 // optional — unix sec; default = floor(Date.now()/1000)
+//
+//     intent: {                            // the signed permit
+//       amount_cap,
+//       max_per_recipient,
+//       expiry,
+//       asset: [hiField, loField],         // 2× field for the 32-byte mint
+//       salt,
+//       min_valid_nonce,
+//       cluster_id,
+//       allowlist: [b58, b58, ...],        // ≤ 256 (depth-8 tree); recipient_b58 must be in here
+//     },
+//
+//     wallet_pda: [hiField, loField],      // 32-byte PDA as 2× field
+//     recipient_token_account: [hi, lo],   // 32-byte ATA as 2× field
+//   }, deps)
+//
+// Returns { input, public_inputs }.
+
+import { pubkeyToFields, buildPaddedMerkle, merkleProof } from './util.mjs';
 
 const MERKLE_DEPTH = 8;
+const VK_ID = '0';
 
-const B58 = '123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz';
-function b58decode(s) {
-    let n = 0n;
-    for (const c of s) {
-        const i = B58.indexOf(c);
-        if (i < 0) throw new Error('bad base58');
-        n = n * 58n + BigInt(i);
+function need(obj, keys) {
+    for (const k of keys) {
+        if (obj[k] === undefined || obj[k] === null) throw new Error(`pay_intent: missing ${k}`);
     }
-    let hex = n.toString(16);
-    if (hex.length % 2) hex = '0' + hex;
-    let bytes = Buffer.from(hex, 'hex');
-    let pad = 0;
-    for (const c of s) { if (c === '1') pad++; else break; }
-    return Buffer.concat([Buffer.alloc(pad), bytes]);
 }
 
 export function buildInput(params, deps) {
-    const { recipient_b58, amount } = params;
+    need(params, ['recipient_b58', 'amount', 'nonce', 'intent', 'wallet_pda', 'recipient_token_account']);
+    need(params.intent, [
+        'amount_cap', 'max_per_recipient', 'expiry', 'asset', 'salt',
+        'min_valid_nonce', 'cluster_id', 'allowlist',
+    ]);
     const { H } = deps;
 
-    if (!recipient_b58 || !amount) {
-        throw new Error('pay_intent: recipient_b58 and amount required');
+    const recipient = pubkeyToFields(params.recipient_b58);
+    const amount = String(params.amount);
+    const nonce = String(params.nonce);
+    const now = String(params.now ?? Math.floor(Date.now() / 1000));
+
+    const intent = params.intent;
+    const intentAmountCap = String(intent.amount_cap);
+    const intentMaxPer = String(intent.max_per_recipient);
+    const intentExpiry = String(intent.expiry);
+    const intentAsset = intent.asset.map(String);
+    const intentSalt = String(intent.salt);
+    const minValidNonce = String(intent.min_valid_nonce);
+    const clusterId = String(intent.cluster_id);
+
+    // Light validation — circuit will catch these too, but error here is friendlier.
+    if (BigInt(amount) > BigInt(intentAmountCap)) {
+        throw new Error(`amount ${amount} exceeds intent.amount_cap ${intentAmountCap}`);
     }
-    const rb = b58decode(recipient_b58);
-    if (rb.length !== 32) throw new Error(`recipient must decode to 32 bytes, got ${rb.length}`);
-
-    const recipientHi = BigInt('0x' + rb.slice(0, 16).toString('hex')).toString();
-    const recipientLo = BigInt('0x' + rb.slice(16, 32).toString('hex')).toString();
-
-    const recipientLeaf = H([recipientHi, recipientLo]);
-    const path = [];
-    const pathIdx = [];
-    let cur = recipientLeaf;
-    for (let d = 0; d < MERKLE_DEPTH; d++) {
-        path.push('0');
-        pathIdx.push(0);
-        cur = H([cur, '0']);
+    if (BigInt(amount) > BigInt(intentMaxPer)) {
+        throw new Error(`amount ${amount} exceeds intent.max_per_recipient ${intentMaxPer}`);
     }
-    const intentRecipientsRoot = cur;
+    if (BigInt(now) >= BigInt(intentExpiry)) {
+        throw new Error(`now ${now} >= intent.expiry ${intentExpiry}`);
+    }
+    if (BigInt(nonce) < BigInt(minValidNonce)) {
+        throw new Error(`nonce ${nonce} < intent.min_valid_nonce ${minValidNonce}`);
+    }
 
-    const amountCap = '100000000';
-    const maxPerRecipient = '10000000';
-    const expiry = '1778648989';
-    const asset = ['24197857200151252728969465429440056815', '338769989521388930494245921488005055265'];
-    const salt = '16045690984503098046';
-    const minValidNonce = '0';
-    const clusterId = '1';
+    // Merkle tree over the allowlist. Each leaf = Poseidon(recipient_hi, recipient_lo).
+    const leaves = intent.allowlist.map((b58) => {
+        const [hi, lo] = pubkeyToFields(b58);
+        return H([hi, lo]);
+    });
+    const recipientLeaf = H(recipient);
+    const recipientIdx = leaves.indexOf(recipientLeaf);
+    if (recipientIdx < 0) {
+        throw new Error(`recipient ${params.recipient_b58} not in allowlist`);
+    }
 
-    // Intent commitment: vk_id = 0 baked into Poseidon(8), then bound with cluster + nonce floor.
+    const levels = buildPaddedMerkle(leaves, MERKLE_DEPTH, H);
+    const intentRecipientsRoot = levels[MERKLE_DEPTH][0];
+    const { path, indices } = merkleProof(levels, recipientIdx, MERKLE_DEPTH);
+
+    // Intent commitment: Poseidon(8) for the bundle, then Poseidon(3) binding
+    // cluster_id + min_valid_nonce. vk_id = 0 baked into the inner hash.
     const left = H([
-        intentRecipientsRoot,
-        amountCap,
-        maxPerRecipient,
-        expiry,
-        asset[0],
-        asset[1],
-        salt,
-        '0',
+        intentRecipientsRoot, intentAmountCap, intentMaxPer, intentExpiry,
+        intentAsset[0], intentAsset[1], intentSalt, VK_ID,
     ]);
     const intentRootPub = H([left, clusterId, minValidNonce]);
 
-    const walletPda = ['22685491128062564230891640495451214097', '45370982256125128461783280990902428194'];
-    const recipientAta = ['68056473384187692692674921486353642291', '90741964512250256923566561981804856388'];
-    const now = '1778044189';
+    const wallet_pda = params.wallet_pda.map(String);
+    const recipient_token_account = params.recipient_token_account.map(String);
 
     const input = {
         intent_root_pub: intentRootPub,
-        recipient: [recipientHi, recipientLo],
-        amount: String(amount),
+        recipient,
+        amount,
         now,
-        nonce: '1',
+        nonce,
         min_valid_nonce: minValidNonce,
         cluster_id: clusterId,
         intent_recipients_root: intentRecipientsRoot,
-        intent_amount_cap: amountCap,
-        intent_max_per_recipient: maxPerRecipient,
-        intent_expiry: expiry,
-        intent_asset: asset,
-        intent_salt: salt,
+        intent_amount_cap: intentAmountCap,
+        intent_max_per_recipient: intentMaxPer,
+        intent_expiry: intentExpiry,
+        intent_asset: intentAsset,
+        intent_salt: intentSalt,
         merkle_path: path,
-        merkle_path_indices: pathIdx,
-        wallet_pda: walletPda,
-        recipient_token_account: recipientAta,
+        merkle_path_indices: indices,
+        wallet_pda,
+        recipient_token_account,
     };
 
     return {
         input,
         public_inputs: {
             intent_root_pub: intentRootPub,
-            recipient: [recipientHi, recipientLo],
-            amount: String(amount),
+            recipient,
+            amount,
             now,
         },
     };
