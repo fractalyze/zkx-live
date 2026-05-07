@@ -53,6 +53,11 @@ circuits/deps/
 circuits/build/
 circuits/ptau/
 
+# Proprietary zkX prover service — kept local, not in the public repo.
+# The public stack is prover-agnostic; any Groth16 prover that produces valid
+# proofs over our circuits works in this slot.
+prover/
+
 # Old experiments not part of the demo (kept locally, not pushed)
 prover-service/
 rabbitsnark-py/

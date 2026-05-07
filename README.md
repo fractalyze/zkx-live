@@ -189,21 +189,27 @@ circom star_bounty.circom --r1cs --c -l node_modules -o build/
 ( cd build/star_bounty_cpp && make )
 ```
 
-Start the prover service (warm GPU, ~3.5 s startup):
+Start the witness service (input + witness gen, ~1 s startup):
+
+```bash
+( cd witness && npm install && node witness_service.mjs )
+```
+
+Start the prover service (warm GPU, ~3.5 s startup — see "Prover slot" below):
 
 ```bash
 PROVER_ZKEY=$PWD/circuits/build/star_bounty_final.zkey \
-  python server/prover.py
+  python prover/prover.py
 ```
 
-Run the demos:
+Run the apps:
 
 ```bash
-# Intent-only demo
-python demo/demo_pay_intent.py
+# Intent-only e2e
+python apps/demo_pay_intent.py
 
-# Click → bounty paid (attested)
-python server/click_to_paid.py <github_username> <owner/repo>
+# Click → bounty paid e2e
+python apps/click_to_paid.py <github_username> <owner/repo>
 ```
 
 ---
@@ -216,22 +222,30 @@ programs/
   verifier-groth16-bn254/           BN254 Groth16 verifier (Light Protocol wrap)
 
 circuits/
-  pay_intent.circom                 Demo 1: intent-bound payment
-  star_bounty.circom                Demo 2: GitHub-star bounty (attested + intent)
-  build_pay_intent_input.mjs        Fixture builder for demo 1
-  build_star_bounty_input.mjs   Fixture builder for demo 2
+  pay_intent.circom                 Demo 1 circuit: intent-bound payment
+  star_bounty.circom                Demo 2 circuit: GitHub-star bounty
   lib/                              Shared circom libs (merkle, ix encoding)
-  bench_zkx_warm.py                 Warm-prover benchmark
-  bench_vanilla_only.mjs            snarkjs baseline benchmark
+  benchmarks/
+    bench_zkx_warm.py               Warm-prover benchmark
+    bench_vanilla_only.mjs          snarkjs baseline benchmark
 
-server/
-  prover.py                         Long-running zkX HTTP prover service
-  click_to_paid.py                  End-to-end demo orchestrator (attested)
+witness/                            Node HTTP service (input + witness gen)
+  witness_service.mjs               Entry — listens :7001
+  pay_intent.mjs                    buildInput() for pay_intent
+  star_bounty.mjs                   buildInput() for star_bounty
+  package.json                      circomlibjs
 
-demo/
-  demo_pay_intent.py                Intent-only e2e demo
+apps/                               End-to-end orchestrators (HTTP clients)
+  demo_pay_intent.py                Intent-only e2e
+  click_to_paid.py                  Click → bounty paid e2e
   lib.py                            Shared SDK helpers (validator, deploy,
                                     VK upload, intent registration, tx submit)
+
+[prover/]                           zkX prover slot — local / proprietary,
+                                    not in this repo. The on-chain stack is
+                                    prover-agnostic; any Groth16 prover that
+                                    produces valid proofs over our circuits
+                                    plugs in here.
 
 keys/                               Program keypairs (deterministic deploy)
 setup.sh                            Clone deps, download ptau, install npm

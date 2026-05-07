@@ -1,0 +1,13 @@
+{
+  "name": "zkx-snap-witness",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "HTTP service: input fixture + witness gen for zkx-snap circuits.",
+  "scripts": {
+    "start": "node witness_service.mjs"
+  },
+  "dependencies": {
+    "circomlibjs": "^0.1.7"
+  }
+}
