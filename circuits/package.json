@@ -15,7 +15,8 @@
     "fixture": "node test/fixture.mjs",
     "prove": "snarkjs groth16 fullprove test/input.json build/pay_static_js/pay_static.wasm build/pay_static_final.zkey build/proof.json build/public.json",
     "verify": "snarkjs groth16 verify build/pay_static_vk.json build/public.json build/proof.json",
-    "bench:vanilla": "node test/bench_vanilla.mjs"
+    "bench:vanilla": "node test/bench_vanilla.mjs",
+    "test": "node --test --test-timeout=180000 intent/intent.test.js bounty/bounty.test.js"
   },
   "dependencies": {
     "@reclaimprotocol/js-sdk": "^5.4.0",
@@ -24,7 +25,8 @@
     "snarkjs": "^0.7.4"
   },
   "devDependencies": {
-    "@types/node": "^20.0.0"
+    "@types/node": "^20.0.0",
+    "circom_tester": "^0.0.24"
   },
   "engines": {
     "node": ">=18"
