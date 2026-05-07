@@ -66,5 +66,4 @@ sdk/package-lock.json
 rabbitsnark-fix.patch
 
 # Track these specifically
-!keys/
-!keys/*-keypair.json
+!programs/*/keypair.json

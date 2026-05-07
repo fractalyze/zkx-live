@@ -248,7 +248,7 @@ apps/                               End-to-end orchestrators (HTTP clients)
                                     produces valid proofs over our circuits
                                     plugs in here.
 
-keys/                               Program keypairs (deterministic deploy)
+programs/<program>/keypair.json     Per-program deploy keypair (deterministic ID)
 setup.sh                            Clone deps, download ptau, install npm
 ```
 
