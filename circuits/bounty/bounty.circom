@@ -1,27 +1,30 @@
 pragma circom 2.1.6;
 
 // =============================================================================
-// star_bounty.circom — real-time demo with EdDSA-BabyJubjub
+// bounty.circom — pay action gated by intent + an attested off-chain claim
 //
-// Same architecture / invariants as V4 (composed verification) but the
-// attestor signature scheme is BabyJubjub EdDSA + Poseidon — SNARK-native,
-// ~3.5k constraints instead of 1.5M for in-circuit secp256k1.
+// Same intent layer as intent.circom, plus the proof binds to a generic
+// (subject, object, timestamp) claim signed by an attestor's BabyJubjub key.
+// EdDSA-BabyJubjub + Poseidon is SNARK-native (~3.5k constraints) vs ~1.5M
+// for in-circuit secp256k1.
 //
-// Use case: self-attestor demo (we own the attestor key). For Reclaim
-// integration, swap to V4 (in-circuit secp256k1). Same gateway, different
-// VK.
+// The (subject, object) pair is generic — works for any attested claim:
+//   GitHub star  : (user_id,         repo_hash      )
+//   Twitter follow: (twitter_id,     target_hash    )
+//   Plaid balance: (account_id,      bucket_hash    )
+//   KYC attribute: (provider_user,   attribute_hash )
 //
-// vk_id binding for the attestation circuit
+// vk_id = 4
 // =============================================================================
 
 include "circomlib/circuits/poseidon.circom";
 include "circomlib/circuits/comparators.circom";
 include "circomlib/circuits/eddsaposeidon.circom";
-include "lib/merkle.circom";
-include "lib/instruction_encode.circom";
+include "../lib/merkle.circom";
+include "../lib/instruction_encode.circom";
 
-template StarBounty(merkleDepth) {
-    // ---- PUBLIC OUTPUTS (same shape as V2/V4 for gateway compatibility) ----
+template Bounty(merkleDepth) {
+    // ---- PUBLIC OUTPUTS (gateway-compatible schema) ----
     signal output vk_id;                          // = 4
     signal output intent_root;
     signal output nullifier;
@@ -39,8 +42,8 @@ template StarBounty(merkleDepth) {
     signal input attestor_Ay;                     // BabyJubjub pubkey y
 
     // ---- PRIVATE WITNESS — attestation ----
-    signal input claim_user_id;                   // GitHub user_id (or hash)
-    signal input claim_repo_hash;                 // Poseidon-hashed repo identifier
+    signal input claim_subject;                   // claim subject (e.g., GitHub user_id, Twitter user_id, Plaid account_id)
+    signal input claim_object;                 // claim object hash (e.g., repo, follow target, balance bucket)
     signal input claim_timestamp;                 // when attestor observed
     signal input sig_R8x;                         // EdDSA sig point x
     signal input sig_R8y;                         // EdDSA sig point y
@@ -61,11 +64,11 @@ template StarBounty(merkleDepth) {
 
     // -------------------------------------------------------------------------
     // C1. Compress claim into a single Poseidon field element (= EdDSA message)
-    //     M = Poseidon(user_id, repo_hash, timestamp)
+    //     M = Poseidon(subject, object_hash, timestamp)
     // -------------------------------------------------------------------------
     component msg_hash = Poseidon(3);
-    msg_hash.inputs[0] <== claim_user_id;
-    msg_hash.inputs[1] <== claim_repo_hash;
+    msg_hash.inputs[0] <== claim_subject;
+    msg_hash.inputs[1] <== claim_object;
     msg_hash.inputs[2] <== claim_timestamp;
 
     // -------------------------------------------------------------------------
@@ -81,7 +84,7 @@ template StarBounty(merkleDepth) {
     eddsa.M <== msg_hash.out;
 
     // -------------------------------------------------------------------------
-    // C3. Intent integrity (Poseidon(9) — same shape as V4 with window_start)
+    // C3. Intent integrity (Poseidon(9) over the bundle, vk_id baked in)
     // -------------------------------------------------------------------------
     component intent_hash = Poseidon(9);
     intent_hash.inputs[0] <== intent_recipients_root;
@@ -134,11 +137,11 @@ template StarBounty(merkleDepth) {
     window_start_check.out === 1;
 
     // -------------------------------------------------------------------------
-    // C7. nullifier = Poseidon(claim_user_id, claim_repo_hash) — per-user-per-repo replay
+    // C7. nullifier = Poseidon(claim_subject, claim_object) — per-claim replay
     // -------------------------------------------------------------------------
     component null_hash = Poseidon(2);
-    null_hash.inputs[0] <== claim_user_id;
-    null_hash.inputs[1] <== claim_repo_hash;
+    null_hash.inputs[0] <== claim_subject;
+    null_hash.inputs[1] <== claim_object;
 
     // -------------------------------------------------------------------------
     // C8. instruction encoding (SPL Transfer)
@@ -166,4 +169,4 @@ template StarBounty(merkleDepth) {
 
 component main {
     public [intent_root_pub, recipient, amount, now, attestor_Ax, attestor_Ay]
-} = StarBounty(8);
+} = Bounty(8);

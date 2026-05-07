@@ -122,7 +122,7 @@ def _run(validator: lib.Validator) -> int:
 
     src_ata_pk = Pubkey.from_string(src_ata)
 
-    # --- proof generation (pay_intent) ---
+    # --- proof generation (intent) ---
     input_json = BUILD / "input.json"
     wtns = BUILD / "witness.wtns"
     proof_path = BUILD / "proof.json"
@@ -140,19 +140,19 @@ def _run(validator: lib.Validator) -> int:
         cwd=str(CIRCUITS),
     )
     lib.gen_witness(
-        CIRCUITS / "build" / "pay_intent_js" / "pay_intent.wasm",
+        CIRCUITS / "build" / "intent_js" / "intent.wasm",
         input_json,
         wtns,
     )
     lib.gen_proof(
-        CIRCUITS / "build" / "pay_intent_final.zkey",
+        CIRCUITS / "build" / "intent_final.zkey",
         wtns,
         proof_path,
         pub_path,
     )
 
     # --- VK upload + intent registration ---
-    vk_json = json.loads((CIRCUITS / "build" / "pay_intent_vk.json").read_text())
+    vk_json = json.loads((CIRCUITS / "build" / "intent_vk.json").read_text())
     vk_bytes = lib.serialize_vk(vk_json)
     config = lib.upload_vk(client, payer, vk_bytes, schema_id=0, nr_pubinputs=20)
 

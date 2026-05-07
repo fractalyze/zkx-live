@@ -1,4 +1,8 @@
-// Build witness-ready input for star_bounty.circom.
+// Build witness-ready input for bounty.circom.
+//
+// Same intent layer as intent.circom, plus an attested off-chain claim:
+// the attestor signs Poseidon(subject, object_hash, timestamp) with their
+// EdDSA-BabyJubjub key, and the proof binds to that signature.
 //
 // API:
 //   buildInput({
@@ -6,8 +10,8 @@
 //     amount,                              // required — string or number (u64)
 //     now,                                 // optional — unix sec; default = floor(Date.now()/1000)
 //
-//     intent: {                            // signed permit (same shape as pay_intent
-//       amount_cap,                        // but with window_start instead of nonce/cluster fields)
+//     intent: {                            // signed permit
+//       amount_cap,
 //       max_per_recipient,
 //       window_start,
 //       expiry,
@@ -17,8 +21,10 @@
 //     },
 //
 //     claim: {                             // attested off-chain claim
-//       user_id,                           // numeric or numeric-string
-//       repo_full,                         // "owner/repo"
+//       subject,                           // numeric or numeric-string (e.g., user_id)
+//       object,                            // string — folded into a field via Poseidon
+//                                          //   (alternatively pass object_hash directly)
+//       object_hash,                       // optional — pre-computed Poseidon field for the object
 //       timestamp,                         // optional, default = now
 //     },
 //     attestor_priv_hex,                   // 32-byte BabyJubjub private key (hex)
@@ -28,21 +34,28 @@
 //   }, deps)
 //
 // Returns { input, public_inputs }.
+//
+// The (subject, object) pair is generic — it's just two field elements the
+// attestor signs over. Pick whatever encoding fits your attested claim:
+//   GitHub star    : subject=user_id,   object="<owner>/<repo>"
+//   Twitter follow : subject=twitter_id, object="<followed_handle>"
+//   Plaid balance  : subject=account_id, object="balance≥50k"
 
-import { pubkeyToFields, buildPaddedMerkle, merkleProof } from './util.js';
+import { pubkeyToFields, buildPaddedMerkle, merkleProof } from '../util.js';
 
 const MERKLE_DEPTH = 8;
 const VK_ID = '4';
 
-function need(obj, keys, scope = 'star_bounty') {
+function need(obj, keys, scope = 'bounty') {
     for (const k of keys) {
         if (obj[k] === undefined || obj[k] === null) throw new Error(`${scope}: missing ${k}`);
     }
 }
 
-// Fold a UTF-8 repo full_name into a single field via two 16-byte halves
-// hashed with Poseidon. Matches the in-circuit binding.
-function repoNameToHash(name, H) {
+// Fold a UTF-8 string into a single Poseidon-hashed field via two 16-byte halves.
+// Same encoding the in-circuit binding expects when the caller supplies a string
+// rather than a pre-computed field hash.
+function stringToObjectHash(name, H) {
     const bytes = Buffer.from(name, 'utf8');
     let n = 0n;
     for (const b of bytes) n = (n * 256n + BigInt(b)) % (1n << 248n);
@@ -59,8 +72,16 @@ export function buildInput(params, deps) {
     need(params.intent, [
         'amount_cap', 'max_per_recipient', 'window_start', 'expiry',
         'asset', 'salt', 'allowlist',
-    ], 'star_bounty.intent');
-    need(params.claim, ['user_id', 'repo_full'], 'star_bounty.claim');
+    ], 'bounty.intent');
+    if (params.claim.subject === undefined || params.claim.subject === null) {
+        throw new Error('bounty.claim: missing subject');
+    }
+    if (
+        (params.claim.object === undefined || params.claim.object === null) &&
+        (params.claim.object_hash === undefined || params.claim.object_hash === null)
+    ) {
+        throw new Error('bounty.claim: missing object or object_hash');
+    }
 
     const { F, H, eddsa } = deps;
 
@@ -95,12 +116,14 @@ export function buildInput(params, deps) {
     const Ax = F.toString(attestorPub[0]);
     const Ay = F.toString(attestorPub[1]);
 
-    // Build claim and sign Poseidon(user_id, repo_hash, timestamp).
-    const claim_user_id = String(params.claim.user_id);
-    const claim_repo_hash = repoNameToHash(params.claim.repo_full, H);
+    // Build claim and sign Poseidon(subject, object_hash, timestamp).
+    const claim_subject = String(params.claim.subject);
+    const claim_object = params.claim.object_hash
+        ? String(params.claim.object_hash)
+        : stringToObjectHash(params.claim.object, H);
     const claim_timestamp = String(params.claim.timestamp ?? now);
 
-    const msg = F.e(H([claim_user_id, claim_repo_hash, claim_timestamp]));
+    const msg = F.e(H([claim_subject, claim_object, claim_timestamp]));
     const sig = eddsa.signPoseidon(attestorPriv, msg);
     if (!eddsa.verifyPoseidon(msg, sig, attestorPub)) {
         throw new Error('eddsa self-verify failed');
@@ -141,8 +164,8 @@ export function buildInput(params, deps) {
         attestor_Ax: Ax,
         attestor_Ay: Ay,
 
-        claim_user_id,
-        claim_repo_hash,
+        claim_subject,
+        claim_object,
         claim_timestamp,
         sig_R8x,
         sig_R8y,

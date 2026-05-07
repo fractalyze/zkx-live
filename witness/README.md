@@ -32,8 +32,8 @@ node app.js                      # listens on :7001
 
 Required: the C++ witness binaries must already be built at
 
-    circuits/build/pay_intent_cpp/pay_intent
-    circuits/build/star_bounty_cpp/star_bounty
+    circuits/build/intent_cpp/intent
+    circuits/build/bounty_cpp/bounty
 
 (see top-level setup.sh / README for `circom --c` + `make` steps).
 
@@ -58,7 +58,7 @@ fields (we coerce with `String(x)`).
 {"ok": true}
 ```
 
-### `POST /witness/pay_intent`
+### `POST /witness/intent`
 
 Request body:
 
@@ -87,15 +87,15 @@ Request body:
 ```
 
 Required fields are validated; missing ones return HTTP 500 with
-`{"error": "pay_intent: missing nonce"}` etc. Optional: `now` (defaults
+`{"error": "intent: missing nonce"}` etc. Optional: `now` (defaults
 to current unix sec).
 
 Response:
 
 ```json
 {
-  "wtns_path":  "/tmp/zkx-snap/pay_intent_<uuid>.wtns",
-  "input_path": "/tmp/zkx-snap/pay_intent_<uuid>.input.json",
+  "wtns_path":  "/tmp/zkx-snap/intent_<uuid>.wtns",
+  "input_path": "/tmp/zkx-snap/intent_<uuid>.input.json",
   "public_inputs": {
     "intent_root_pub": "...",
     "recipient":       ["...", "..."],
@@ -113,14 +113,24 @@ Response:
 The caller passes `wtns_path` to the prover service:
 
 ```bash
-curl -s :8000/prove -d '{"witness_path":"/tmp/zkx-snap/pay_intent_xxx.wtns"}'
+curl -s :8000/prove -d '{"witness_path":"/tmp/zkx-snap/intent_xxx.wtns"}'
 ```
 
-### `POST /witness/star_bounty`
+### `POST /witness/bounty`
 
-Same shape as `pay_intent` plus the attestation layer. The `intent`
+Same shape as `intent` plus the attestation layer. The `intent`
 sub-object replaces `cluster_id`/`min_valid_nonce` with `window_start`
-(EdDSA-binding semantics differ from the nonce-floor model).
+(claim-trigger semantics differ from the nonce-floor model).
+
+The `claim` is a generic (subject, object, timestamp) tuple — any
+attested external state, not just GitHub stars. Pick whatever encoding
+fits the attestor:
+- GitHub star:    `subject=user_id`, `object="<owner>/<repo>"`
+- Twitter follow: `subject=twitter_id`, `object="<followed_handle>"`
+- Plaid balance:  `subject=account_id`, `object="balance≥50k"`
+
+You can also pre-hash the object yourself and pass `object_hash`
+instead of `object` if you've computed the field encoding off-band.
 
 Request body:
 
@@ -141,8 +151,8 @@ Request body:
   },
 
   "claim": {
-    "user_id":   "424242",
-    "repo_full": "octocat/Hello-World",
+    "subject":   "424242",
+    "object":    "octocat/Hello-World",
     "timestamp": 1778044100
   },
   "attestor_priv_hex": "1111111111111111111111111111111111111111111111111111111111111111",
@@ -152,7 +162,7 @@ Request body:
 }
 ```
 
-Response: same shape as `pay_intent`, plus `attestor_Ax` / `attestor_Ay`
+Response: same shape as `intent`, plus `attestor_Ax` / `attestor_Ay`
 in `public_inputs` (the BabyJubjub pubkey of the signing attestor).
 
 ---
@@ -163,11 +173,11 @@ in `public_inputs` (the BabyJubjub pubkey of the signing attestor).
    POST /witness/<circuit>
             │
             ▼
-   builder(body, deps)        ← pay_intent.js or star_bounty.js
+   builder(body, deps)        ← intent/builder.js or bounty/builder.js
    ├─ validate (amount caps, expiry/window, allowlist membership, ...)
    ├─ Poseidon Merkle build over allowlist  (depth-8 padded tree)
    ├─ Compute intent_root_pub               (Poseidon-9 with vk_id baked in)
-   ├─ EdDSA-BabyJubjub sign claim           (star_bounty only)
+   ├─ EdDSA-BabyJubjub sign claim           (bounty only)
    └─ return {input, public_inputs}
             │
             ▼
@@ -180,7 +190,7 @@ in `public_inputs` (the BabyJubjub pubkey of the signing attestor).
    return {wtns_path, public_inputs, timing_ms}
 ```
 
-Typical per-request timing (16k-constraint star_bounty):
+Typical per-request timing (16k-constraint bounty):
 - `build_input`: 3–8 ms (Poseidon over ~10 hashes + EdDSA sign)
 - `witness_gen`: ~10 ms (C++ binary, native speed)
 - **total: ~15 ms warm**
@@ -194,9 +204,9 @@ Typical per-request timing (16k-constraint star_bounty):
 ```
 witness/
   app.js                 Express HTTP entry — wraps the two builders
-  pay_intent.js          buildInput() — pure function, takes init'd
+  intent/builder.js          buildInput() — pure function, takes init'd
                          circomlibjs primitives via `deps`
-  star_bounty.js         buildInput() — same, plus EdDSA + claim layer
+  bounty/builder.js         buildInput() — same, plus EdDSA + claim layer
   util.js                shared helpers: b58 decode, Merkle build/proof
   package.json           "type": "module" — deps: express, circomlibjs
   README.md              this file
@@ -210,7 +220,7 @@ Two services, two roles:
 
 ```
 apps/click_to_paid.py
-  ├─ POST :7001/witness/star_bounty {high-level intent + claim}
+  ├─ POST :7001/witness/bounty {high-level intent + claim}
   │      → {wtns_path, public_inputs, timing}
   ├─ POST :8000/prove {wtns_path}
   │      → {proof, public_signals, timing}

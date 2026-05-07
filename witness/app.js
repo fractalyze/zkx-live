@@ -3,11 +3,11 @@
 // circuit so the orchestrator only sees one HTTP roundtrip per witness.
 //
 // Endpoints:
-//   GET  /health                    → {ok: true}
-//   POST /witness/pay_intent
-//   POST /witness/star_bounty
+//   GET  /health             → {ok: true}
+//   POST /witness/intent
+//   POST /witness/bounty
 //
-// Request bodies are documented in pay_intent.js / star_bounty.js JSDoc.
+// Request bodies are documented in intent/builder.js / bounty/builder.js JSDoc.
 //
 // Response:
 //   {wtns_path, input_path, public_inputs,
@@ -28,8 +28,8 @@ import { randomUUID } from 'node:crypto';
 
 import { buildPoseidon, buildEddsa, buildBabyjub } from 'circomlibjs';
 
-import { buildInput as buildPayIntent } from './pay_intent.js';
-import { buildInput as buildStarBounty } from './star_bounty.js';
+import { buildInput as buildIntent } from './intent/builder.js';
+import { buildInput as buildBounty } from './bounty/builder.js';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const PORT = Number(process.env.WITNESS_PORT ?? 7001);
@@ -37,8 +37,8 @@ const CIRCUITS_DIR = resolve(process.env.CIRCUITS_DIR ?? join(HERE, '..', 'circu
 const WORK_DIR = process.env.WITNESS_WORK_DIR ?? '/tmp/zkx-snap';
 
 const BIN = {
-    pay_intent:  join(CIRCUITS_DIR, 'build', 'pay_intent_cpp', 'pay_intent'),
-    star_bounty: join(CIRCUITS_DIR, 'build', 'star_bounty_cpp', 'star_bounty'),
+    intent: join(CIRCUITS_DIR, 'build', 'intent_cpp', 'intent'),
+    bounty: join(CIRCUITS_DIR, 'build', 'bounty_cpp', 'bounty'),
 };
 
 console.log('[witness] init circomlibjs ...');
@@ -55,8 +55,8 @@ const DEPS = { poseidon, F, H, eddsa, babyjub };
 await mkdir(WORK_DIR, { recursive: true });
 
 const BUILDERS = {
-    pay_intent:  buildPayIntent,
-    star_bounty: buildStarBounty,
+    intent: buildIntent,
+    bounty: buildBounty,
 };
 
 function runWitnessGen(circuit, inputPath, wtnsPath) {

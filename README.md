@@ -19,7 +19,7 @@ sharing the same infrastructure** (gateway program, Groth16 verifier,
 zkX prover service). The verifier-registry pattern lets us plug each
 into the same on-chain stack with no code change, only a new VK.
 
-### 1. `pay_intent` — intent-bound payment
+### 1. `intent` — intent-bound payment
 
 > *ERC-8150-style intent-bound payment primitive on Solana, enforced by ZK.*
 
@@ -31,13 +31,13 @@ commitment shape mirrors [ERC-8150](https://eips.ethereum.org/EIPS/eip-8150)
 (intent-bound transactions) — adapted to Solana's account model and
 enforced cryptographically rather than by an EVM precompile.
 
-- **Circuit**: `circuits/pay_intent.circom`
+- **Circuit**: `circuits/intent/intent.circom`
 - **Constraints**: 8,726 (small)
 - **Use case**: AI-agent wallets, automated payment policies, cron-bot
   spending guardrails — anywhere you want cryptographic enforcement of
   "agent X can spend up to Y to recipients in set Z".
 
-### 2. `star_bounty` — attested-claim payment
+### 2. `bounty` — attested-claim payment
 
 > *Bounty pays out only when an attested off-chain event happened.*
 
@@ -48,7 +48,7 @@ the demo, **we** are the attestor (server-side check via the public
 GitHub API + sign with our key). For production, swap with Reclaim's
 MPC-attested secp256k1 — same circuit family, different attestor key.
 
-- **Circuit**: `circuits/star_bounty.circom`
+- **Circuit**: `circuits/bounty/bounty.circom`
 - **Constraints**: 16,655
 - **Use case**: web2-attested bounties, sybil-resistant airdrops,
   reputation-gated grants, conditional payments based on external state.
@@ -59,10 +59,10 @@ what the attestation/intent layer commits to.
 
 ---
 
-## Real-time pipeline (`star_bounty` demo)
+## Real-time pipeline (`bounty` demo)
 
 ```
-$ python server/click_to_paid.py octocat octocat/Hello-World
+$ python apps/click_to_paid.py octocat octocat/Hello-World
 
 [1/5] GitHub starred check ✓ user_id=583231 (423 ms)
 [2/5] Build fixture (EdDSA self-sign) ✓ (1085 ms)
@@ -85,7 +85,7 @@ regular HTTPS round-trip.
 
 ---
 
-## Verification logic (`star_bounty`, atomic in one ZK proof)
+## Verification logic (`bounty`, atomic in one ZK proof)
 
 1. **Attestor signature** (EdDSA-BabyJubjub, ~3.5 k constraints)
 2. **Intent commitment match** (Poseidon-9 over recipients_root, caps,
@@ -131,8 +131,8 @@ logic on attested data, all enforced atomically.
 ┌──────────────────────────────────────────────────────────────┐
 │  Demo orchestrator — Python                                  │
 │  ─────────────────────────────────────────────────────────   │
-│  pay_intent demo: load fixture → witness → /prove → tx       │
-│  star_bounty demo:                                           │
+│  intent demo: load fixture → witness → /prove → tx       │
+│  bounty demo:                                           │
 │    1. Verify GitHub starred via public API                   │
 │    2. Self-attestor signs (EdDSA-BabyJubjub)                 │
 │    3. C++ witness gen (8 ms)                                 │
@@ -176,17 +176,17 @@ Compile circuits + zkey + C++ witness binary:
 
 ```bash
 cd circuits
-# pay_intent
-circom pay_intent.circom --r1cs --wasm -l node_modules -o build/
-./node_modules/.bin/snarkjs groth16 setup build/pay_intent.r1cs ptau/pot22_hez.ptau build/pay_intent_0000.zkey
-./node_modules/.bin/snarkjs zkey contribute build/pay_intent_0000.zkey build/pay_intent_final.zkey -e='snap'
-./node_modules/.bin/snarkjs zkey export verificationkey build/pay_intent_final.zkey build/pay_intent_vk.json
-# star_bounty
-circom star_bounty.circom --r1cs --c -l node_modules -o build/
-./node_modules/.bin/snarkjs groth16 setup build/star_bounty.r1cs ptau/pot22_hez.ptau build/star_bounty_0000.zkey
-./node_modules/.bin/snarkjs zkey contribute build/star_bounty_0000.zkey build/star_bounty_final.zkey -e='snap'
-./node_modules/.bin/snarkjs zkey export verificationkey build/star_bounty_final.zkey build/star_bounty_vk.json
-( cd build/star_bounty_cpp && make )
+# intent
+circom intent/intent.circom --r1cs --wasm -l node_modules -o build/
+./node_modules/.bin/snarkjs groth16 setup build/intent.r1cs ptau/pot22_hez.ptau build/intent_0000.zkey
+./node_modules/.bin/snarkjs zkey contribute build/intent_0000.zkey build/intent_final.zkey -e='snap'
+./node_modules/.bin/snarkjs zkey export verificationkey build/intent_final.zkey build/intent_vk.json
+# bounty
+circom bounty/bounty.circom --r1cs --c -l node_modules -o build/
+./node_modules/.bin/snarkjs groth16 setup build/bounty.r1cs ptau/pot22_hez.ptau build/bounty_0000.zkey
+./node_modules/.bin/snarkjs zkey contribute build/bounty_0000.zkey build/bounty_final.zkey -e='snap'
+./node_modules/.bin/snarkjs zkey export verificationkey build/bounty_final.zkey build/bounty_vk.json
+( cd build/bounty_cpp && make )
 ```
 
 Start the witness service (input + witness gen, ~1 s startup):
@@ -198,7 +198,7 @@ Start the witness service (input + witness gen, ~1 s startup):
 Start the prover service (warm GPU, ~3.5 s startup — see "Prover slot" below):
 
 ```bash
-PROVER_ZKEY=$PWD/circuits/build/star_bounty_final.zkey \
+PROVER_ZKEY=$PWD/circuits/build/bounty_final.zkey \
   python prover/prover.py
 ```
 
@@ -222,18 +222,19 @@ programs/
   verifier-groth16-bn254/           BN254 Groth16 verifier (Light Protocol wrap)
 
 circuits/
-  pay_intent.circom                 Demo 1 circuit: intent-bound payment
-  star_bounty.circom                Demo 2 circuit: GitHub-star bounty
+  intent/intent.circom              Demo 1 circuit: intent-bound payment
+  bounty/bounty.circom              Demo 2 circuit: intent + attested claim
   lib/                              Shared circom libs (merkle, ix encoding)
   benchmarks/
     bench_zkx_warm.py               Warm-prover benchmark
-    bench_vanilla_only.js          snarkjs baseline benchmark
+    bench_vanilla_only.js           snarkjs baseline benchmark
 
 witness/                            Node HTTP service (input + witness gen)
-  witness_service.mjs               Entry — listens :7001
-  pay_intent.mjs                    buildInput() for pay_intent
-  star_bounty.mjs                   buildInput() for star_bounty
-  package.json                      circomlibjs
+  app.js                            Express entry — listens :7001
+  intent/builder.js                 buildInput() for intent
+  bounty/builder.js                 buildInput() for bounty
+  util.js                           shared helpers (b58, Merkle)
+  package.json                      deps: express, circomlibjs
 
 apps/                               End-to-end orchestrators (HTTP clients)
   demo_pay_intent.py                Intent-only e2e

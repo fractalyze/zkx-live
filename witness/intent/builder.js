@@ -1,4 +1,4 @@
-// Build witness-ready input for pay_intent.circom.
+// Build witness-ready input for intent.circom.
 //
 // API:
 //   buildInput({
@@ -24,14 +24,14 @@
 //
 // Returns { input, public_inputs }.
 
-import { pubkeyToFields, buildPaddedMerkle, merkleProof } from './util.js';
+import { pubkeyToFields, buildPaddedMerkle, merkleProof } from '../util.js';
 
 const MERKLE_DEPTH = 8;
 const VK_ID = '0';
 
 function need(obj, keys) {
     for (const k of keys) {
-        if (obj[k] === undefined || obj[k] === null) throw new Error(`pay_intent: missing ${k}`);
+        if (obj[k] === undefined || obj[k] === null) throw new Error(`intent: missing ${k}`);
     }
 }
 

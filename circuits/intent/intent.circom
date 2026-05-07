@@ -1,22 +1,21 @@
 pragma circom 2.1.6;
 
 // =============================================================================
-// pay_intent.circom — Pay action with intent-bound static allowlist
+// intent.circom — pay action gated by an intent-bound spending policy
 //
 // Statement: An SPL token transfer of `amount` to `recipient` satisfies the
-// user-signed IntentBundle: recipient ∈ allowlist (Merkle), amount ≤ cap,
-// not expired, not replayed.
+// owner-signed IntentBundle: recipient ∈ allowlist (Merkle), amount ≤ caps,
+// not expired, nonce ≥ floor, not replayed.
 //
-// vk_id = 0 (Pay)
-// Public input schema follows the fixed layout — see ../README.md
+// vk_id = 0
 // =============================================================================
 
 include "circomlib/circuits/poseidon.circom";
 include "circomlib/circuits/comparators.circom";
-include "lib/merkle.circom";
-include "lib/instruction_encode.circom";
+include "../lib/merkle.circom";
+include "../lib/instruction_encode.circom";
 
-template PayIntent(merkleDepth) {
+template Intent(merkleDepth) {
     // ---- PUBLIC OUTPUTS (fixed schema across all circuits) ----
     signal output vk_id;                          // [0]
     signal output intent_root;                    // [1]
@@ -148,4 +147,4 @@ template PayIntent(merkleDepth) {
 
 component main {
     public [intent_root_pub, recipient, amount, now]
-} = PayIntent(8);
+} = Intent(8);
