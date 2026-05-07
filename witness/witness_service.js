@@ -31,8 +31,8 @@ import { randomUUID } from 'node:crypto';
 
 import { buildPoseidon, buildEddsa, buildBabyjub } from 'circomlibjs';
 
-import { buildInput as buildPayIntent } from './pay_intent.mjs';
-import { buildInput as buildStarBounty } from './star_bounty.mjs';
+import { buildInput as buildPayIntent } from './pay_intent.js';
+import { buildInput as buildStarBounty } from './star_bounty.js';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const PORT = Number(process.env.WITNESS_PORT ?? 7001);

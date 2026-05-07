@@ -24,7 +24,7 @@
 //
 // Returns { input, public_inputs }.
 
-import { pubkeyToFields, buildPaddedMerkle, merkleProof } from './util.mjs';
+import { pubkeyToFields, buildPaddedMerkle, merkleProof } from './util.js';
 
 const MERKLE_DEPTH = 8;
 const VK_ID = '0';
