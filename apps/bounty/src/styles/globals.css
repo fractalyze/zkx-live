@@ -1,0 +1,15 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+html, body, #__next {
+    height: 100%;
+}
+
+body {
+    @apply bg-bg text-fg font-sans antialiased;
+}
+
+input {
+    @apply bg-transparent;
+}
