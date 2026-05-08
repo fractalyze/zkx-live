@@ -108,10 +108,11 @@ logic on attested data, all enforced atomically.
 
 ```
 ┌──────────────────────────────────────────────────────────────┐
-│  Solana on-chain                                             │
+│  Solana on-chain  (deployed on devnet)                       │
 │  ─────────────────────────────────────────────────────────   │
-│   gateway program       — register / execute intent          │
+│   gateway program            3FYPieR6NZiQYGUx9TNeXGWwaV6n... │
 │     └─ CPI ──→ verifier-groth16-bn254                        │
+│                              Hy878UwGsJpw62Kxio3ySbDXQoy21... │
 │        └─ Light Protocol Groth16 verify (~190 k CU)          │
 │   Modular sibling-ix verifiers (SPL, System, …)              │
 └──────────────────────────────────────────────────────────────┘
