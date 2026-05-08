@@ -3,11 +3,15 @@ import { ProgressStep, StepState } from './ProgressStep';
 export type StepKey = 'star' | 'witness' | 'prove' | 'submit';
 
 export const STEP_LABELS: Record<StepKey, string> = {
-    star:    'Star detected',
+    star:    'Starring repo',
     witness: 'Building witness',
     prove:   'Generating ZK proof',
     submit:  'Submitting on Solana',
 };
+
+// Steps the user should perceive as instant. Sub-second steps get the
+// accent color treatment in the timing column.
+export const FAST_STEPS: ReadonlyArray<StepKey> = ['star', 'witness', 'prove'];
 
 export type StepStatus = {
     state: StepState;
@@ -27,9 +31,6 @@ type Props = {
     open: boolean;
     repo: string;
     onClose: () => void;
-    onOpenRepo: () => void;
-    waitingForStar: boolean;
-    lastPolledAgoSec?: number;
     steps: Record<StepKey, StepStatus>;
     result?: ClaimResult;
     error?: string;
@@ -39,9 +40,6 @@ export function ClaimModal({
     open,
     repo,
     onClose,
-    onOpenRepo,
-    waitingForStar,
-    lastPolledAgoSec,
     steps,
     result,
     error,
@@ -56,14 +54,7 @@ export function ClaimModal({
                 ) : error ? (
                     <ErrorView error={error} onClose={onClose} />
                 ) : (
-                    <ProgressView
-                        repo={repo}
-                        waitingForStar={waitingForStar}
-                        lastPolledAgoSec={lastPolledAgoSec}
-                        onOpenRepo={onOpenRepo}
-                        steps={steps}
-                        onClose={onClose}
-                    />
+                    <ProgressView repo={repo} steps={steps} onClose={onClose} />
                 )}
             </div>
         </div>
@@ -72,41 +63,19 @@ export function ClaimModal({
 
 function ProgressView({
     repo,
-    waitingForStar,
-    lastPolledAgoSec,
-    onOpenRepo,
     steps,
     onClose,
 }: {
     repo: string;
-    waitingForStar: boolean;
-    lastPolledAgoSec?: number;
-    onOpenRepo: () => void;
     steps: Record<StepKey, StepStatus>;
     onClose: () => void;
 }) {
     return (
         <>
             <div className="text-sm uppercase tracking-widest text-muted">
-                Claiming your bounty
+                Claiming bounty for{' '}
+                <span className="font-mono text-fg/70">{repo}</span>
             </div>
-
-            {waitingForStar && (
-                <div className="mt-5 rounded-xl border border-accent/30 bg-accent/[0.04] p-4">
-                    <div className="text-sm font-semibold">⭐ Step 1: Star the repo</div>
-                    <button
-                        onClick={onOpenRepo}
-                        className="mt-3 w-full rounded-lg border border-accent px-4 py-2 text-sm font-medium text-accent hover:bg-accent/10"
-                    >
-                        🔗 Open {repo} ↗
-                    </button>
-                    <div className="mt-3 text-xs text-muted">
-                        ⏳ Waiting for your star
-                        {lastPolledAgoSec !== undefined &&
-                            ` — checked ${lastPolledAgoSec}s ago`}
-                    </div>
-                </div>
-            )}
 
             <div className="mt-6 divide-y divide-white/5">
                 <ProgressStep
@@ -123,6 +92,7 @@ function ProgressView({
                     label={STEP_LABELS.prove}
                     state={steps.prove.state}
                     timing_ms={steps.prove.timing_ms}
+                    emphasize
                 />
                 <ProgressStep
                     label={STEP_LABELS.submit}

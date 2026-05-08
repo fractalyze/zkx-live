@@ -12,10 +12,13 @@ the services configured; you just need to forward the right ports.
 After one-time setup below:
 
 ```bash
-ssh zkx                        # opens shell + forwards 3000/7001/9090
+ssh zkx                                # opens shell + forwards 13000/17001/19090
 # — in that shell on the server, start services as usual —
-# — in your local browser: http://localhost:3000 —
+# — in your local browser: http://localhost:13000 —
 ```
+
+If you want the tunnel always-up (without re-typing `ssh zkx`), there's
+an `autossh` recipe further down — at-login auto-start + auto-reconnect.
 
 ---
 
@@ -45,22 +48,27 @@ Edit (or create) `~/.ssh/config` and append:
 Host zkx
     HostName <SERVER hostname or IP>
     User <USER>
-    # bounty UI
-    LocalForward 3000 localhost:3000
-    # witness service
-    LocalForward 7001 localhost:7001
-    # zkX prover
-    LocalForward 9090 localhost:9090
-    # nice-to-have
+    # Local-side ports SHIFTED so they don't collide with anything you
+    # might run locally on the same default port. See "Port shifting"
+    # below for the rationale.
+    LocalForward 13000 localhost:3000      # bounty UI
+    LocalForward 17001 localhost:7001      # witness service
+    LocalForward 19090 localhost:9090      # zkX prover
     ServerAliveInterval 30
     ServerAliveCountMax 4
+    ExitOnForwardFailure yes
 ```
 
 Replace `<SERVER>` and `<USER>`. The alias `zkx` is arbitrary — anything
 short works.
 
 `ServerAliveInterval` keeps the connection from idle-timing-out while
-you watch the modal animate.
+you watch the modal animate. `ExitOnForwardFailure yes` makes ssh fail
+fast if a port is already taken (helpful with autossh — see below).
+
+> **Browse to** `http://localhost:13000` (note the `1` prefix), not
+> `:3000`. The shift means anything *you* run locally on `:3000` still
+> works.
 
 ### 3. Test it
 
@@ -75,6 +83,32 @@ If the curl times out / refuses connection: see Troubleshooting below.
 
 ---
 
+## Port shifting (why `13000` instead of `3000`)
+
+The line `LocalForward 3000 localhost:3000` says "bind **my** local port
+3000 and forward everything to the server's 3000". That binds the
+local port for the duration of the SSH session. While the tunnel is up:
+
+- `localhost:3000` in your browser → the **server's** dev server
+- Any local process trying to listen on 3000 → `EADDRINUSE`
+
+If you ever code locally (run a Next dev on your laptop while also
+having the tunnel up — same project, different machine), the local
+`npm run dev` collides with the tunnel.
+
+The workaround is trivial: shift the local-side number. The config
+above uses `LocalForward 13000 localhost:3000`, so:
+
+| URL in your browser | Where it lands       |
+| ------------------- | -------------------- |
+| `localhost:3000`    | **your laptop**'s dev server (no collision) |
+| `localhost:13000`   | **server**'s dev server (via the tunnel)    |
+
+The mnemonic — server's port with a leading `1`. Same trick for
+`7001 → 17001`, `9090 → 19090`.
+
+---
+
 ## Daily workflow
 
 In one local terminal:
@@ -83,14 +117,113 @@ In one local terminal:
 ssh zkx
 # (now in remote shell)
 cd ~/Workspace/zkx-snap
-( cd witness && node app.js )                  # :7001
-( cd prover  && python app.py )                # :9090 (in another tab)
-( cd apps/bounty && npm run dev )              # :3000
+( cd witness && node app.js )                  # :7001 on the server
+( cd prover  && python app.py )                # :9090 on the server (another tab)
+( cd apps/bounty && npm run dev )              # :3000 on the server
 ```
 
-In your local browser: **http://localhost:3000**
+In your local browser: **http://localhost:13000**
 
 When you `exit` the SSH session, the forwards drop with it.
+
+## Make the tunnel persistent (`autossh`)
+
+If you'd rather just leave the tunnel up all the time and not
+re-`ssh zkx` whenever the connection dies, install `autossh`:
+
+```bash
+brew install autossh                           # macOS
+sudo apt install autossh                       # Linux
+```
+
+One command, no shell, runs in the background, auto-reconnects on drop:
+
+```bash
+autossh -M 0 -N -f \
+    -o "ServerAliveInterval 30" \
+    -o "ServerAliveCountMax 4" \
+    -o "ExitOnForwardFailure yes" \
+    zkx
+```
+
+| Flag                    | Why                                                   |
+| ----------------------- | ----------------------------------------------------- |
+| `-M 0`                  | skip autossh's own monitor port (ServerAlive is enough) |
+| `-N`                    | don't open a shell, just hold the tunnel              |
+| `-f`                    | go background                                         |
+| `ExitOnForwardFailure`  | exit immediately if a port can't bind → triggers reconnect |
+
+Check it's alive:
+```bash
+ps aux | grep autossh
+```
+
+Stop it:
+```bash
+pkill autossh
+```
+
+### Auto-start at login (optional)
+
+**macOS — launchd**. Save as `~/Library/LaunchAgents/com.user.zkx-tunnel.plist`:
+
+```xml
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN"
+  "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>Label</key>            <string>com.user.zkx-tunnel</string>
+    <key>ProgramArguments</key>
+    <array>
+        <string>/opt/homebrew/bin/autossh</string>
+        <string>-M</string><string>0</string>
+        <string>-N</string>
+        <string>-o</string><string>ServerAliveInterval=30</string>
+        <string>-o</string><string>ServerAliveCountMax=4</string>
+        <string>-o</string><string>ExitOnForwardFailure=yes</string>
+        <string>zkx</string>
+    </array>
+    <key>RunAtLoad</key>        <true/>
+    <key>KeepAlive</key>        <true/>
+</dict>
+</plist>
+```
+
+```bash
+launchctl load ~/Library/LaunchAgents/com.user.zkx-tunnel.plist
+launchctl list | grep zkx-tunnel               # confirm running
+```
+
+(`/opt/homebrew/bin/autossh` is the Apple Silicon Homebrew path; on
+Intel Macs it's `/usr/local/bin/autossh`. `which autossh` to check.)
+
+**Linux — systemd user service**. Save as
+`~/.config/systemd/user/zkx-tunnel.service`:
+
+```ini
+[Unit]
+Description=Persistent SSH tunnel to zkx
+After=network-online.target
+
+[Service]
+ExecStart=/usr/bin/autossh -M 0 -N \
+    -o "ServerAliveInterval 30" \
+    -o "ServerAliveCountMax 4" \
+    -o "ExitOnForwardFailure yes" \
+    zkx
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=default.target
+```
+
+```bash
+systemctl --user daemon-reload
+systemctl --user enable --now zkx-tunnel
+systemctl --user status zkx-tunnel             # confirm running
+```
 
 ### Multiple tabs
 

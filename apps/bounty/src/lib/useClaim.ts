@@ -18,8 +18,6 @@ const initialSteps: Record<StepKey, StepStatus> = {
 
 export type ClaimState = {
     open: boolean;
-    waitingForStar: boolean;
-    lastPolledAgoSec?: number;
     steps: Record<StepKey, StepStatus>;
     result?: ClaimResult;
     error?: string;
@@ -28,7 +26,6 @@ export type ClaimState = {
 export function useClaim() {
     const [state, setState] = useState<ClaimState>({
         open: false,
-        waitingForStar: false,
         steps: initialSteps,
     });
     const abortRef = useRef<AbortController | null>(null);
@@ -36,17 +33,16 @@ export function useClaim() {
     const close = useCallback(() => {
         abortRef.current?.abort();
         abortRef.current = null;
-        setState({ open: false, waitingForStar: false, steps: initialSteps });
+        setState({ open: false, steps: initialSteps });
     }, []);
 
-    const start = useCallback(async (input: { username: string; recipient: string }) => {
+    const start = useCallback(async (input: { recipient: string }) => {
         // Reset + open modal.
         abortRef.current?.abort();
         const ctrl = new AbortController();
         abortRef.current = ctrl;
         setState({
             open: true,
-            waitingForStar: true,
             steps: { ...initialSteps, star: { state: 'running' } },
         });
 
@@ -123,19 +119,9 @@ function handleEvent(
                 state: 'running' | 'done' | 'error';
                 timing_ms?: number;
             };
-            setState((s) => {
-                const steps = { ...s.steps, [key]: { state, timing_ms } };
-                // Once the star step is done we can stop showing the "waiting" UI.
-                const waitingForStar = key === 'star' && state === 'done' ? false : s.waitingForStar;
-                return { ...s, steps, waitingForStar };
-            });
-            break;
-        }
-        case 'star_polling': {
-            const { last_check_ago_ms } = evt.data as { last_check_ago_ms: number };
             setState((s) => ({
                 ...s,
-                lastPolledAgoSec: Math.floor(last_check_ago_ms / 1000),
+                steps: { ...s.steps, [key]: { state, timing_ms } },
             }));
             break;
         }

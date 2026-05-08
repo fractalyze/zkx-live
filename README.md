@@ -248,7 +248,11 @@ apps/                               End-to-end orchestrators (HTTP clients)
                                     produces valid proofs over our circuits
                                     plugs in here.
 
-programs/<program>/keypair.json     Per-program deploy keypair (deterministic ID)
+programs/<program>/keypair.json     Per-program deploy keypair (deterministic ID).
+                                    ⚠ localnet/testnet only — these keypairs ship
+                                    in the public repo so any clone deploys at the
+                                    same `declare_id!`. Anyone deploying these to
+                                    mainnet would let the world upgrade the program.
 setup.sh                            Clone deps, download ptau, install npm
 ```
 

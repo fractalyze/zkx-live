@@ -1,19 +1,13 @@
 import type { NextApiRequest, NextApiResponse } from 'next';
 import { startSseResponse, writeSse } from '@/lib/sse';
-import { getUserId, isStarred } from '@/lib/github';
+import { getSession } from '@/lib/session';
 import { buildWitness, generateProof } from '@/lib/services';
 import { explorerUrl, sendBounty } from '@/lib/solana';
 
 const REPO = process.env.GITHUB_REPO || 'octocat/Hello-World';
-const AMOUNT = parseInt(process.env.BOUNTY_AMOUNT || '5000000', 10);  // lamports for SOL transfer demo
+const AMOUNT = parseInt(process.env.BOUNTY_AMOUNT || '5000000', 10);  // lamports
 const AMOUNT_HUMAN = process.env.BOUNTY_AMOUNT_HUMAN || '5 USDC';
 
-const STAR_TIMEOUT_MS = 60_000;
-const STAR_POLL_INTERVAL_MS = 1500;
-
-// Static intent bundle for the demo — in production this would come from a
-// signed intent the bounty creator authored. The recipient is appended to
-// the allowlist per-request so the witness builder accepts it.
 const STATIC_INTENT = {
     amount_cap: '100000000',
     max_per_recipient: '10000000',
@@ -23,67 +17,64 @@ const STATIC_INTENT = {
             '338769989521388930494245921488005055265'] as [string, string],
     salt: '16045690984503098046',
 };
-
 const ATTESTOR_PRIV_HEX = process.env.ATTESTOR_PRIV_HEX || '11'.repeat(32);
+
+// PUT /user/starred — idempotent. Returns 204 whether or not the user had
+// already starred. We use the *user's* OAuth token (not our app credentials)
+// so the star is attributed to them.
+async function autoStar(token: string, repo: string): Promise<void> {
+    const r = await fetch(`https://api.github.com/user/starred/${repo}`, {
+        method: 'PUT',
+        headers: {
+            Authorization: `Bearer ${token}`,
+            Accept: 'application/vnd.github+json',
+            'Content-Length': '0',
+            'User-Agent': 'zkx-snap-bounty',
+        },
+    });
+    if (r.status !== 204) {
+        throw new Error(`Failed to star ${repo}: ${r.status} ${await r.text()}`);
+    }
+}
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
     if (req.method !== 'POST') {
         res.status(405).json({ error: 'method not allowed' });
         return;
     }
-    const { username, recipient } = req.body ?? {};
-    if (typeof username !== 'string' || typeof recipient !== 'string') {
-        res.status(400).json({ error: 'username and recipient (string) required' });
+    const session = getSession(req);
+    if (!session) {
+        res.status(401).json({ error: 'not logged in — sign in with GitHub first' });
+        return;
+    }
+    const { recipient } = (req.body ?? {}) as { recipient?: string };
+    if (typeof recipient !== 'string' || recipient.length < 32) {
+        res.status(400).json({ error: 'recipient (Solana base58 address) required' });
         return;
     }
 
     startSseResponse(res);
-
     const t0 = Date.now();
     let proofMsInternal = 0;
 
     try {
-        // ── Step 1: poll GitHub for the star ────────────────────────────────
+        // ── Step 1: auto-star on user's behalf ──────────────────────────────
         writeSse(res, 'step', { key: 'star', state: 'running' });
-
         const tStar = Date.now();
-        let starred = false;
-        while (Date.now() - tStar < STAR_TIMEOUT_MS) {
-            try {
-                if (await isStarred(username, REPO)) {
-                    starred = true;
-                    break;
-                }
-            } catch (e: unknown) {
-                writeSse(res, 'error', { message: String((e as Error)?.message ?? e) });
-                res.end();
-                return;
-            }
-            const checkAge = Date.now() - tStar;
-            writeSse(res, 'star_polling', { last_check_ago_ms: checkAge });
-            await sleep(STAR_POLL_INTERVAL_MS);
-        }
-        if (!starred) {
-            writeSse(res, 'error', {
-                message: `Star not detected within ${STAR_TIMEOUT_MS / 1000}s. Did you star ${REPO}?`,
-            });
-            res.end();
-            return;
-        }
+        await autoStar(session.access_token, REPO);
         const starMs = Date.now() - tStar;
         writeSse(res, 'step', { key: 'star', state: 'done', timing_ms: starMs });
 
         // ── Step 2: build witness ───────────────────────────────────────────
         writeSse(res, 'step', { key: 'witness', state: 'running' });
         const tWit = Date.now();
-        const userId = await getUserId(username);
         const wit = await buildWitness({
             recipient_b58: recipient,
             amount: String(AMOUNT),
             now: Math.floor(Date.now() / 1000),
             intent: { ...STATIC_INTENT, allowlist: [recipient] },
             claim: {
-                subject: userId,
+                subject: String(session.id),       // GitHub numeric user id from session
                 object: REPO,
                 timestamp: Math.floor(Date.now() / 1000),
             },
@@ -94,7 +85,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         const witMs = Date.now() - tWit;
         writeSse(res, 'step', { key: 'witness', state: 'done', timing_ms: witMs });
 
-        // ── Step 3: generate proof ──────────────────────────────────────────
+        // ── Step 3: generate ZK proof ───────────────────────────────────────
         writeSse(res, 'step', { key: 'prove', state: 'running' });
         const proof = await generateProof(wit.wtns_path);
         proofMsInternal = proof.timing_ms?.proof ?? proof.timing_ms?.wall ?? 0;
@@ -121,8 +112,4 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     } finally {
         res.end();
     }
-}
-
-function sleep(ms: number): Promise<void> {
-    return new Promise((r) => setTimeout(r, ms));
 }

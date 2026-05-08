@@ -4,31 +4,29 @@ type Props = {
     label: string;
     state: StepState;
     timing_ms?: number;
+    /** Highlight the timing in accent color — for the "wow" step (ZK proof). */
+    emphasize?: boolean;
 };
 
-export function ProgressStep({ label, state, timing_ms }: Props) {
+export function ProgressStep({ label, state, timing_ms, emphasize = false }: Props) {
     return (
-        <div className="flex items-center justify-between py-2">
+        <div className="flex items-center justify-between py-3">
             <div className="flex items-center gap-3">
                 <Icon state={state} />
                 <span
                     className={
                         state === 'pending'
                             ? 'text-muted'
-                            : state === 'running'
-                              ? 'text-fg'
-                              : state === 'error'
-                                ? 'text-err'
-                                : 'text-fg'
+                            : state === 'error'
+                              ? 'text-err'
+                              : 'text-fg'
                     }
                 >
                     {label}
                 </span>
             </div>
-            {timing_ms !== undefined && (
-                <span className="font-mono text-sm text-muted tabular-nums">
-                    {formatMs(timing_ms)}
-                </span>
+            {timing_ms !== undefined && state === 'done' && (
+                <Timing ms={timing_ms} emphasize={emphasize} />
             )}
         </div>
     );
@@ -47,6 +45,21 @@ function Icon({ state }: { state: StepState }) {
         return <span className="text-err">✗</span>;
     }
     return <span className="text-ok">✓</span>;
+}
+
+function Timing({ ms, emphasize }: { ms: number; emphasize: boolean }) {
+    const fast = ms < 1000;
+    const colorClass = emphasize
+        ? 'text-accent font-semibold'
+        : fast
+          ? 'text-ok'
+          : 'text-muted';
+    return (
+        <span className={`font-mono text-sm tabular-nums ${colorClass}`}>
+            {formatMs(ms)}
+            {emphasize && fast && ' ⚡'}
+        </span>
+    );
 }
 
 function formatMs(ms: number): string {

@@ -1,36 +1,36 @@
 import { FormEvent, useState } from 'react';
 
 type Props = {
-    onSubmit: (input: { username: string; recipient: string }) => void;
+    onSubmit: (input: { recipient: string }) => void;
+    disabled?: boolean;
 };
 
-export function ClaimForm({ onSubmit }: Props) {
-    const [username, setUsername] = useState('');
+export function ClaimForm({ onSubmit, disabled = false }: Props) {
     const [recipient, setRecipient] = useState('');
 
-    const valid = username.trim().length > 0 && recipient.trim().length >= 32;
+    const valid = !disabled && recipient.trim().length >= 32;
 
     function handleSubmit(e: FormEvent) {
         e.preventDefault();
         if (!valid) return;
-        onSubmit({ username: username.trim(), recipient: recipient.trim() });
+        onSubmit({ recipient: recipient.trim() });
     }
 
     return (
         <form onSubmit={handleSubmit} className="space-y-5">
-            <Field
-                label="GitHub username"
-                placeholder="octocat"
-                value={username}
-                onChange={setUsername}
-            />
-            <Field
-                label="Solana address (where to receive)"
-                placeholder="HJ7K...xY4M"
-                value={recipient}
-                onChange={setRecipient}
-                mono
-            />
+            <label className="block">
+                <div className="text-sm text-muted">Solana address (where to receive)</div>
+                <input
+                    type="text"
+                    placeholder="HJ7K...xY4M"
+                    value={recipient}
+                    onChange={(e) => setRecipient(e.target.value)}
+                    className="mt-1 w-full rounded-lg border border-white/10 px-4 py-3 outline-none transition focus:border-accent font-mono text-sm"
+                    spellCheck={false}
+                    autoComplete="off"
+                    disabled={disabled}
+                />
+            </label>
 
             <button
                 type="submit"
@@ -40,37 +40,5 @@ export function ClaimForm({ onSubmit }: Props) {
                 ⭐ Star and claim
             </button>
         </form>
-    );
-}
-
-function Field({
-    label,
-    placeholder,
-    value,
-    onChange,
-    mono = false,
-}: {
-    label: string;
-    placeholder: string;
-    value: string;
-    onChange: (v: string) => void;
-    mono?: boolean;
-}) {
-    return (
-        <label className="block">
-            <div className="text-sm text-muted">{label}</div>
-            <input
-                type="text"
-                placeholder={placeholder}
-                value={value}
-                onChange={(e) => onChange(e.target.value)}
-                className={
-                    'mt-1 w-full rounded-lg border border-white/10 px-4 py-3 outline-none transition focus:border-accent ' +
-                    (mono ? 'font-mono text-sm' : '')
-                }
-                spellCheck={false}
-                autoComplete="off"
-            />
-        </label>
     );
 }

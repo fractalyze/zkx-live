@@ -1,14 +1,41 @@
+import { useEffect, useState } from 'react';
 import { BountyCard } from '@/components/BountyCard';
 import { ClaimForm } from '@/components/ClaimForm';
 import { ClaimModal } from '@/components/ClaimModal';
 import { useClaim } from '@/lib/useClaim';
 
-// In a future phase these come from /api/config (or NEXT_PUBLIC_*).
-const REPO = 'octocat/Hello-World';
-const AMOUNT_HUMAN = '5 USDC';
+const REPO = 'fractalyze/zkx-snap';
+const AMOUNT_HUMAN = '0.01 SOL';
+
+type AuthState =
+    | { status: 'loading' }
+    | { status: 'out' }
+    | { status: 'in'; login: string; id: number };
 
 export default function Home() {
     const { state, start, close } = useClaim();
+    const [auth, setAuth] = useState<AuthState>({ status: 'loading' });
+
+    useEffect(() => {
+        let cancelled = false;
+        fetch('/api/auth/me')
+            .then((r) => r.json())
+            .then((d) => {
+                if (cancelled) return;
+                if (d.logged_in) {
+                    setAuth({ status: 'in', login: d.login, id: d.id });
+                } else {
+                    setAuth({ status: 'out' });
+                }
+            })
+            .catch(() => !cancelled && setAuth({ status: 'out' }));
+        return () => { cancelled = true; };
+    }, []);
+
+    async function handleLogout() {
+        await fetch('/api/auth/logout', { method: 'POST' });
+        setAuth({ status: 'out' });
+    }
 
     return (
         <main className="mx-auto flex min-h-screen max-w-xl flex-col gap-8 px-4 py-12">
@@ -26,7 +53,36 @@ export default function Home() {
 
             <BountyCard repo={REPO} amount={AMOUNT_HUMAN} />
 
-            <ClaimForm onSubmit={start} />
+            {auth.status === 'loading' && (
+                <div className="text-center text-sm text-muted">…</div>
+            )}
+
+            {auth.status === 'out' && (
+                <a
+                    href="/api/auth/login"
+                    className="block w-full rounded-xl border border-white/15 bg-white/[0.03] px-6 py-4 text-center text-lg font-semibold transition hover:bg-white/[0.06]"
+                >
+                    🐙 Sign in with GitHub
+                </a>
+            )}
+
+            {auth.status === 'in' && (
+                <>
+                    <div className="flex items-center justify-between rounded-lg border border-white/10 bg-white/[0.03] px-4 py-3 text-sm">
+                        <span>
+                            ✓ Signed in as{' '}
+                            <span className="font-mono text-accent">@{auth.login}</span>
+                        </span>
+                        <button
+                            onClick={handleLogout}
+                            className="text-xs text-muted hover:text-fg"
+                        >
+                            Sign out
+                        </button>
+                    </div>
+                    <ClaimForm onSubmit={start} />
+                </>
+            )}
 
             <footer className="mt-auto pt-8 text-center text-xs text-muted">
                 ZK proof in ~140 ms warm — accelerated by zkX.
@@ -36,9 +92,6 @@ export default function Home() {
                 open={state.open}
                 repo={REPO}
                 onClose={close}
-                onOpenRepo={() => window.open(`https://github.com/${REPO}`, '_blank', 'noopener')}
-                waitingForStar={state.waitingForStar}
-                lastPolledAgoSec={state.lastPolledAgoSec}
                 steps={state.steps}
                 result={state.result}
                 error={state.error}
