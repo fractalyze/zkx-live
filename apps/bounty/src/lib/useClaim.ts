@@ -61,7 +61,15 @@ export function useClaim() {
         }
 
         if (!response.ok || !response.body) {
-            setState((s) => ({ ...s, error: `claim API ${response.status}` }));
+            // 4xx pre-stream errors come back as JSON {error}.
+            let msg = `claim API ${response.status}`;
+            try {
+                const body = (await response.json()) as { error?: string };
+                if (body.error) msg = body.error;
+            } catch {
+                /* not JSON, keep the generic message */
+            }
+            setState((s) => ({ ...s, error: msg }));
             return;
         }
 

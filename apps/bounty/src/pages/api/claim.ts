@@ -3,6 +3,7 @@ import { startSseResponse, writeSse } from '@/lib/sse';
 import { getSession } from '@/lib/session';
 import { buildWitness, generateProof } from '@/lib/services';
 import { explorerUrl, sendBounty } from '@/lib/solana';
+import { hasClaimed, markClaimed } from '@/lib/claimed';
 
 const REPO = process.env.GITHUB_REPO || 'octocat/Hello-World';
 const AMOUNT = parseInt(process.env.BOUNTY_AMOUNT || '5000000', 10);  // lamports
@@ -53,6 +54,14 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         return;
     }
 
+    // Replay guard. Same (subject, object) the circuit's nullifier covers.
+    if (hasClaimed(session.id, REPO)) {
+        res.status(409).json({
+            error: `@${session.login} already claimed the bounty for ${REPO}.`,
+        });
+        return;
+    }
+
     startSseResponse(res);
     const t0 = Date.now();
     let proofMsInternal = 0;
@@ -97,6 +106,10 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         const sig = await sendBounty(recipient, AMOUNT);
         const submitMs = Date.now() - tSubmit;
         writeSse(res, 'step', { key: 'submit', state: 'done', timing_ms: submitMs });
+
+        // Mark claimed only AFTER successful tx — otherwise a mid-pipeline
+        // failure would lock the user out without paying them.
+        markClaimed(session.id, REPO);
 
         writeSse(res, 'done', {
             tx_sig: sig,
