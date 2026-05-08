@@ -28,9 +28,6 @@
 //       timestamp,                         // optional, default = now
 //     },
 //     attestor_priv_hex,                   // 32-byte BabyJubjub private key (hex)
-//
-//     wallet_pda: [hi, lo],
-//     recipient_token_account: [hi, lo],
 //   }, deps)
 //
 // Returns { input, public_inputs }.
@@ -66,8 +63,7 @@ function stringToObjectHash(name, H) {
 
 export function buildInput(params, deps) {
     need(params, [
-        'recipient_b58', 'amount', 'intent', 'claim',
-        'attestor_priv_hex', 'wallet_pda', 'recipient_token_account',
+        'recipient_b58', 'amount', 'intent', 'claim', 'attestor_priv_hex',
     ]);
     need(params.intent, [
         'amount_cap', 'max_per_recipient', 'window_start', 'expiry',
@@ -153,17 +149,15 @@ export function buildInput(params, deps) {
         intentAsset[0], intentAsset[1], intentSalt, VK_ID,
     ]);
 
-    const wallet_pda = params.wallet_pda.map(String);
-    const recipient_token_account = params.recipient_token_account.map(String);
-
     const input = {
+        // Public inputs (6)
         intent_root_pub: intentRootPub,
         recipient,
         amount,
-        now,
         attestor_Ax: Ax,
         attestor_Ay: Ay,
 
+        // Private witness — claim
         claim_subject,
         claim_object,
         claim_timestamp,
@@ -171,6 +165,8 @@ export function buildInput(params, deps) {
         sig_R8y,
         sig_S,
 
+        // Private witness — intent + freshness
+        now,
         intent_recipients_root: intentRecipientsRoot,
         intent_amount_cap: intentAmountCap,
         intent_max_per_recipient: intentMaxPer,
@@ -180,8 +176,6 @@ export function buildInput(params, deps) {
         intent_salt: intentSalt,
         merkle_path: path,
         merkle_path_indices: indices,
-        wallet_pda,
-        recipient_token_account,
     };
 
     return {
@@ -190,7 +184,6 @@ export function buildInput(params, deps) {
             intent_root_pub: intentRootPub,
             recipient,
             amount,
-            now,
             attestor_Ax: Ax,
             attestor_Ay: Ay,
         },

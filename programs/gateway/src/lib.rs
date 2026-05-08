@@ -372,10 +372,14 @@ fn decode_payment_schema(
     let recipient_hi_slot = match schema_id {
         SCHEMA_PAYMENT => 16usize,
         SCHEMA_RECLAIM_PAYMENT => 24usize,
-        // the attestation circuit: 17 outputs (vk_id, intent_root, nullifier,
-        // attestor_pubkey_out[2], program_id[2], accounts_hash[2], data[8])
-        // followed by intent_root_pub, recipient[2], amount, ...
-        SCHEMA_SELF_ATTEST => 18usize,
+        // bounty circuit, ERC-8150-minimal layout (6 publics):
+        //   0: intent_root_pub
+        //   1: recipient_hi
+        //   2: recipient_lo
+        //   3: amount
+        //   4: attestor_Ax
+        //   5: attestor_Ay
+        SCHEMA_SELF_ATTEST => 1usize,
         _ => return err!(GatewayError::UnsupportedSchema),
     };
     let amount_slot = recipient_hi_slot + 2;

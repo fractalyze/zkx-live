@@ -128,6 +128,13 @@ fn verify_inner(
     // Light Protocol's API takes a fixed-size array. Dispatch on the supported
     // public-input counts we ship: the variants we ship.
     match nr {
+        6 => {
+            let pubs: [[u8; 32]; 6] = public_inputs.try_into()
+                .map_err(|_| error!(VerifierError::ProofMalformed))?;
+            let mut v = Groth16Verifier::new(proof_a, proof_b, proof_c, &pubs, vk)
+                .map_err(|_| error!(VerifierError::ProofInvalid))?;
+            v.verify().map_err(|_| error!(VerifierError::ProofInvalid))?;
+        }
         20 => {
             let pubs: [[u8; 32]; 20] = public_inputs.try_into()
                 .map_err(|_| error!(VerifierError::ProofMalformed))?;

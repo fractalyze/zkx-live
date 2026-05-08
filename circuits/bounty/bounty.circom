@@ -14,6 +14,12 @@ pragma circom 2.1.6;
 //   Plaid balance: (account_id,      bucket_hash    )
 //   KYC attribute: (provider_user,   attribute_hash )
 //
+// Public inputs (6, ERC-8150 minimal): intent_root_pub, recipient[2], amount,
+// attestor_Ax, attestor_Ay. Everything else (now, intent fields, claim, EdDSA
+// signature, Merkle path) is private witness — the gateway only ever needs to
+// see the values it cryptographically enforces. See programs/gateway/src/lib.rs
+// `decode_payment_schema` for the on-chain layout this matches.
+//
 // vk_id = 4
 // =============================================================================
 
@@ -21,35 +27,25 @@ include "circomlib/circuits/poseidon.circom";
 include "circomlib/circuits/comparators.circom";
 include "circomlib/circuits/eddsaposeidon.circom";
 include "../lib/merkle.circom";
-include "../lib/instruction_encode.circom";
 
 template Bounty(merkleDepth) {
-    // ---- PUBLIC OUTPUTS (gateway-compatible schema) ----
-    signal output vk_id;                          // = 4
-    signal output intent_root;
-    signal output nullifier;
-    signal output attestor_pubkey_out[2];         // 2 elems (Ax, Ay), not 8 for ECDSA
-    signal output instruction_program_id[2];
-    signal output instruction_accounts_hash[2];
-    signal output instruction_data[8];
-
-    // ---- PUBLIC INPUTS ----
+    // ---- PUBLIC INPUTS (6 total — see component main `public [...]` below) -----
     signal input intent_root_pub;
     signal input recipient[2];
     signal input amount;
-    signal input now;
     signal input attestor_Ax;                     // BabyJubjub pubkey x
     signal input attestor_Ay;                     // BabyJubjub pubkey y
 
-    // ---- PRIVATE WITNESS — attestation ----
-    signal input claim_subject;                   // claim subject (e.g., GitHub user_id, Twitter user_id, Plaid account_id)
-    signal input claim_object;                 // claim object hash (e.g., repo, follow target, balance bucket)
+    // ---- PRIVATE WITNESS — claim ----
+    signal input claim_subject;                   // claim subject (e.g., GitHub user_id)
+    signal input claim_object;                    // claim object hash (e.g., Poseidon-hashed repo)
     signal input claim_timestamp;                 // when attestor observed
     signal input sig_R8x;                         // EdDSA sig point x
     signal input sig_R8y;                         // EdDSA sig point y
     signal input sig_S;                           // EdDSA sig scalar
 
-    // ---- PRIVATE WITNESS — intent ----
+    // ---- PRIVATE WITNESS — intent + freshness ----
+    signal input now;                             // unix sec, enforced in [window_start, expiry)
     signal input intent_recipients_root;
     signal input intent_amount_cap;
     signal input intent_max_per_recipient;
@@ -59,8 +55,6 @@ template Bounty(merkleDepth) {
     signal input intent_salt;
     signal input merkle_path[merkleDepth];
     signal input merkle_path_indices[merkleDepth];
-    signal input wallet_pda[2];
-    signal input recipient_token_account[2];
 
     // -------------------------------------------------------------------------
     // C1. Compress claim into a single Poseidon field element (= EdDSA message)
@@ -72,7 +66,7 @@ template Bounty(merkleDepth) {
     msg_hash.inputs[2] <== claim_timestamp;
 
     // -------------------------------------------------------------------------
-    // C2. EdDSA verify (BabyJubjub + Poseidon-5 hash) — ~3.5k constraints
+    // C2. EdDSA verify (BabyJubjub + Poseidon hash) — ~3.5k constraints
     // -------------------------------------------------------------------------
     component eddsa = EdDSAPoseidonVerifier();
     eddsa.enabled <== 1;
@@ -85,6 +79,7 @@ template Bounty(merkleDepth) {
 
     // -------------------------------------------------------------------------
     // C3. Intent integrity (Poseidon(9) over the bundle, vk_id baked in)
+    //     intent_root_pub === H(recipients_root, caps..., asset, salt, vk_id=4)
     // -------------------------------------------------------------------------
     component intent_hash = Poseidon(9);
     intent_hash.inputs[0] <== intent_recipients_root;
@@ -95,11 +90,11 @@ template Bounty(merkleDepth) {
     intent_hash.inputs[5] <== intent_asset[0];
     intent_hash.inputs[6] <== intent_asset[1];
     intent_hash.inputs[7] <== intent_salt;
-    intent_hash.inputs[8] <== 4; // vk_id
+    intent_hash.inputs[8] <== 4;                  // vk_id
     intent_root_pub === intent_hash.out;
 
     // -------------------------------------------------------------------------
-    // C4. recipient ∈ allowlist (Merkle)
+    // C4. recipient ∈ allowlist (Merkle, depth-8)
     // -------------------------------------------------------------------------
     component recipient_leaf = Poseidon(2);
     recipient_leaf.inputs[0] <== recipient[0];
@@ -126,6 +121,8 @@ template Bounty(merkleDepth) {
 
     // -------------------------------------------------------------------------
     // C6. bounty window: window_start ≤ now < expiry
+    //     `now` is private — chain trusts the prover's claim it was in window
+    //     at proof-gen time. The nullifier (C7) prevents replay regardless.
     // -------------------------------------------------------------------------
     component expiry_check = LessThan(64);
     expiry_check.in[0] <== now;
@@ -136,37 +133,16 @@ template Bounty(merkleDepth) {
     window_start_check.in[1] <== now;
     window_start_check.out === 1;
 
-    // -------------------------------------------------------------------------
-    // C7. nullifier = Poseidon(claim_subject, claim_object) — per-claim replay
-    // -------------------------------------------------------------------------
-    component null_hash = Poseidon(2);
-    null_hash.inputs[0] <== claim_subject;
-    null_hash.inputs[1] <== claim_object;
-
-    // -------------------------------------------------------------------------
-    // C8. instruction encoding (SPL Transfer)
-    // -------------------------------------------------------------------------
-    component spl_encode = EncodeSplTransfer();
-    spl_encode.amount <== amount;
-    for (var i = 0; i < 2; i++) {
-        spl_encode.from_pda[i] <== wallet_pda[i];
-        spl_encode.recipient_ata[i] <== recipient_token_account[i];
-        spl_encode.mint[i] <== intent_asset[i];
-    }
-
-    // ---- wire outputs ----
-    vk_id <== 4;
-    intent_root <== intent_root_pub;
-    nullifier <== null_hash.out;
-    attestor_pubkey_out[0] <== attestor_Ax;
-    attestor_pubkey_out[1] <== attestor_Ay;
-    instruction_program_id[0] <== spl_encode.program_id[0];
-    instruction_program_id[1] <== spl_encode.program_id[1];
-    instruction_accounts_hash[0] <== spl_encode.accounts_hash[0];
-    instruction_accounts_hash[1] <== spl_encode.accounts_hash[1];
-    for (var i = 0; i < 8; i++) instruction_data[i] <== spl_encode.data[i];
+    // Nullifier note: the gateway derives a per-claim nullifier from
+    // sha256(public_inputs) + intent.nullifier_seed + schema_id (see
+    // gateway::compute_nullifier). With our 6-public layout (intent_root_pub,
+    // recipient[2], amount, attestor_Ax/Ay), the chain enforces "one payout
+    // per (intent, recipient, amount, attestor)" — exactly one bounty per
+    // recipient address under this intent. Different (subject, object) claim
+    // values change the proof but NOT the public inputs, so they nullify to
+    // the same value — which is what we want for a per-recipient bounty.
 }
 
 component main {
-    public [intent_root_pub, recipient, amount, now, attestor_Ax, attestor_Ay]
+    public [intent_root_pub, recipient, amount, attestor_Ax, attestor_Ay]
 } = Bounty(8);

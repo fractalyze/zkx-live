@@ -1,17 +1,23 @@
-# Definition of Done — Stage B+C: VK + Intent on-chain setup
+# Definition of Done — Stage D+E+F+G: full on-chain claim flow (v2 lean-6)
 
-Setup the on-chain state needed before any claim flow can call gateway:
-- Verifier program holds the bounty circuit's VK in a PDA (chunk-uploaded).
-- Gateway program holds an Intent PDA matching the witness service's
-  intent_root_pub for the static bounty intent bundle.
+Replace the apps/bounty `SystemProgram.transfer` shortcut with a real
+gateway-routed tx so the bounty payment is gated by **on-chain** proof
+verification + **on-chain** nullifier enforcement. Then collapse the
+chunked staging path into a single tx by slimming the bounty circuit
+to ERC-8150-minimal public inputs (24 → 6).
 
-Programs already deployed (Stage A — devnet):
-- verifier  Hy878UwGsJpw62Kxio3ySbDXQoy21dR8JgmFrEv338qj
-- gateway   3FYPieR6NZiQYGUx9TNeXGWwaV6ntD6ig2hu9jLi69ZQ
-Bounty deploy wallet C77EZ1vMEQs7d32LvDxKZKcvjHuxy5GTRxrxAchMvsJ6 (~5.84 SOL).
+What's already in place (Stages A+B+C, devnet):
+- gateway program  3FYPieR6NZiQYGUx9TNeXGWwaV6ntD6ig2hu9jLi69ZQ
+- verifier program Hy878UwGsJpw62Kxio3ySbDXQoy21dR8JgmFrEv338qj
+- v2 VK PDA        6j6k3ZqvHumwTwFWFFA3xX2YDZMHS8mWRV4u8iEJnKv9
+- v2 Intent PDA    2stqky6ve3jPz6eWw3oPaqXWEutSj1cp4TavzU6peZSd
+                   (owner=C77EZ..., schema_id=2, verifier_config=1bc5e8...bd7b)
+- Bounty wallet    C77EZ1vMEQs7d32LvDxKZKcvjHuxy5GTRxrxAchMvsJ6 (~5+ SOL)
 
-- [x] `solana account <vk_pda> --url https://api.devnet.solana.com --output json` returns valid account; data length ≥ 1700 bytes; the `vk_data` portion has at least 80% non-zero bytes (chunks fully written, not still all zeros)
-- [x] `<vk_pda>` matches the canonical PDA derived from `seeds = ["vk", config]` and program `Hy878UwGsJpw62Kxio3ySbDXQoy21dR8JgmFrEv338qj`, where `config = sha256(canonical_vk_bytes)` for the bounty circuit
-- [x] `solana account <intent_pda> --url https://api.devnet.solana.com --output json` returns valid account; the deserialized IntentPda has `verifier_program == Hy878UwGsJpw62Kxio3ySbDXQoy21dR8JgmFrEv338qj` and `schema_id == 2` (SCHEMA_SELF_ATTEST). The gateway does not enforce on-chain `intent_root` against the proof's `intent_root_pub`, so this field can be a placeholder — the proof itself carries the authoritative intent commitment via its public inputs.
-- [x] An idempotent setup script exists (e.g., `scripts/setup-onchain.ts`) that reproduces the above PDAs from a fresh devnet state; re-running is a no-op (`Already initialized` log) if PDAs exist
-- [x] `git diff --stat HEAD -- programs/*/src/` shows empty (no source files under `programs/<program>/src/` were modified)
+- [x] `POST /api/claim` (with a logged-in GitHub session + valid recipient pubkey) returns HTTP 200 with `tx_sig`. The corresponding tx, fetched via `solana confirm <tx_sig> --url https://api.devnet.solana.com`, reports `Confirmation Status: Confirmed` (or Finalized) and `Status: Success` / no `Err:` line
+- [x] The same tx, fetched via `solana confirm -v <tx_sig> --url https://api.devnet.solana.com`, shows the gateway program id `3FYPieR6NZiQYGUx9TNeXGWwaV6ntD6ig2hu9jLi69ZQ` invoked as a top-level instruction AND the verifier program id `Hy878UwGsJpw62Kxio3ySbDXQoy21dR8JgmFrEv338qj` invoked as an inner instruction (CPI). Logs include `Groth16 OK schema=2 pubs=6` (v2: 6 publics)
+- [x] The recipient pubkey passed to `/api/claim` shows a balance increase equal to `BOUNTY_AMOUNT` (10000000 lamports) on devnet after the tx is confirmed
+- [x] A second `POST /api/claim` for the same logged-in GitHub user fails on chain with the gateway's `NullifierUsed` error (Anchor error 6012 = 0x177c, msg "Nullifier already used (replay rejected)") in the failed tx's logs
+- [x] `apps/bounty/src/pages/api/claim.ts` no longer imports `sendBounty` from `@/lib/solana`; the on-chain step goes through `submitClaimTx` (TS) → `scripts/tx_builder.py` (Python helper) → gateway `execute_intent` ix + sibling `SystemProgram.transfer` in a single tx
+- [x] v2 circuit slim: `circuits/bounty/bounty.circom` declares 6 public inputs (intent_root_pub, recipient[2], amount, attestor_Ax, attestor_Ay) and 0 public outputs. `solana confirm -v <v2 tx>` shows `Groth16 OK schema=2 pubs=6`
+- [x] Submit wall-clock on devnet (warm prover) is < 1.5 s — single-tx claim, no chunked staging

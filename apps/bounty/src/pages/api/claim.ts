@@ -2,7 +2,7 @@ import type { NextApiRequest, NextApiResponse } from 'next';
 import { startSseResponse, writeSse } from '@/lib/sse';
 import { getSession } from '@/lib/session';
 import { buildWitness, generateProof } from '@/lib/services';
-import { explorerUrl, sendBounty } from '@/lib/solana';
+import { submitClaimTx } from '@/lib/txBuilder';
 import { hasClaimed, markClaimed } from '@/lib/claimed';
 
 const REPO = process.env.GITHUB_REPO || 'octocat/Hello-World';
@@ -100,20 +100,29 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         proofMsInternal = proof.timing_ms?.proof ?? proof.timing_ms?.wall ?? 0;
         writeSse(res, 'step', { key: 'prove', state: 'done', timing_ms: proofMsInternal });
 
-        // ── Step 4: submit Solana tx ────────────────────────────────────────
+        // ── Step 4: submit Solana tx via gateway ────────────────────────────
+        // Hands the proof + public_signals to the local tx_builder service
+        // which encodes them into the gateway program's expected format
+        // (proof_a pre-negation, BE field encoding), stages the chunks, and
+        // submits the execute_chunked_intent + sibling System.transfer in a
+        // single tx. The gateway CPIs into the verifier program — proof
+        // verification + nullifier are enforced **on-chain**.
         writeSse(res, 'step', { key: 'submit', state: 'running' });
         const tSubmit = Date.now();
-        const sig = await sendBounty(recipient, AMOUNT);
+        const submit = await submitClaimTx({
+            recipient_b58: recipient,
+            proof: proof.proof,
+            public_signals: proof.public_signals,
+        });
         const submitMs = Date.now() - tSubmit;
         writeSse(res, 'step', { key: 'submit', state: 'done', timing_ms: submitMs });
 
-        // Mark claimed only AFTER successful tx — otherwise a mid-pipeline
-        // failure would lock the user out without paying them.
+        // Mark claimed only AFTER the on-chain tx confirmed.
         markClaimed(session.id, REPO);
 
         writeSse(res, 'done', {
-            tx_sig: sig,
-            explorer_url: explorerUrl(sig),
+            tx_sig: submit.tx_sig,
+            explorer_url: submit.explorer_url,
             total_ms: Date.now() - t0,
             proof_ms: proofMsInternal,
             recipient,
