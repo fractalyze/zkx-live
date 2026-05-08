@@ -186,6 +186,7 @@ export function buildInput(params, deps) {
             amount,
             attestor_Ax: Ax,
             attestor_Ay: Ay,
+            claim_subject,
         },
     };
 }

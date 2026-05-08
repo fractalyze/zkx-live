@@ -120,6 +120,7 @@ pub mod gateway {
         verify_and_enforce(
             intent,
             &mut ctx.accounts.nullifier_set_pda,
+            &mut ctx.accounts.subject_nullifier_set_pda,
             &ctx.accounts.verifier_program,
             &ctx.accounts.verifier_vk_pda,
             &ctx.accounts.instructions_sysvar.to_account_info(),
@@ -212,6 +213,7 @@ pub mod gateway {
         verify_and_enforce(
             intent,
             &mut ctx.accounts.nullifier_set_pda,
+            &mut ctx.accounts.subject_nullifier_set_pda,
             &ctx.accounts.verifier_program,
             &ctx.accounts.verifier_vk_pda,
             &ctx.accounts.instructions_sysvar.to_account_info(),
@@ -265,6 +267,7 @@ pub mod gateway {
         verify_and_enforce(
             intent,
             &mut ctx.accounts.nullifier_set_pda,
+            &mut ctx.accounts.subject_nullifier_set_pda,
             &ctx.accounts.verifier_program,
             &ctx.accounts.verifier_vk_pda,
             &ctx.accounts.instructions_sysvar.to_account_info(),
@@ -278,6 +281,7 @@ pub mod gateway {
 fn verify_and_enforce<'info>(
     intent: &Account<'info, IntentPda>,
     nset: &mut Account<'info, NullifierSetPda>,
+    subject_nset: &mut Account<'info, SubjectNullifierSetPda>,
     verifier_program: &AccountInfo<'info>,
     verifier_vk_pda: &AccountInfo<'info>,
     instructions_sysvar: &AccountInfo<'info>,
@@ -325,6 +329,28 @@ fn verify_and_enforce<'info>(
     require!(!nset.used.contains(&nullifier), GatewayError::NullifierUsed);
     nset.used.push(nullifier);
 
+    // Per-subject nullifier — for schemas that bind a subject identity
+    // (e.g. claim_subject = GitHub user_id) into a known public-input slot,
+    // enforce "one claim per (intent, subject)" independent of recipient.
+    if let Some(slot) = subject_slot(outcome.schema_id) {
+        require!(
+            outcome.pub_count as usize > slot,
+            GatewayError::PublicInputsMismatch
+        );
+        let mut subject = [0u8; 32];
+        subject.copy_from_slice(&public_inputs[slot * 32..(slot + 1) * 32]);
+        let subj_null = compute_subject_nullifier(
+            &intent.nullifier_seed,
+            outcome.schema_id,
+            &subject,
+        );
+        require!(
+            !subject_nset.used.contains(&subj_null),
+            GatewayError::SubjectNullifierUsed
+        );
+        subject_nset.used.push(subj_null);
+    }
+
     let (recipient, amount) = decode_payment_schema(
         public_inputs,
         outcome.pub_count as usize,
@@ -354,6 +380,29 @@ fn compute_nullifier(seed: &[u8; 32], schema_id: u8, pi_hash: &[u8; 32]) -> [u8;
     hash(&buf).to_bytes()
 }
 
+/// Subject nullifier — independent of recipient/amount/intent_root. Used to
+/// enforce "one claim per (intent, claim_subject)" semantics, where
+/// claim_subject is e.g. a GitHub user_id bound into the proof's public
+/// inputs at a schema-known slot. This is what stops the same user from
+/// claiming multiple times under different recipient addresses.
+fn compute_subject_nullifier(seed: &[u8; 32], schema_id: u8, subject: &[u8; 32]) -> [u8; 32] {
+    let mut buf = [0u8; 65];
+    buf[..32].copy_from_slice(seed);
+    buf[32] = schema_id;
+    buf[33..65].copy_from_slice(subject);
+    hash(&buf).to_bytes()
+}
+
+/// Slot index of the claim_subject field in the public inputs for each
+/// schema. `None` means the schema doesn't carry a subject — no per-subject
+/// nullifier is enforced.
+fn subject_slot(schema_id: u8) -> Option<usize> {
+    match schema_id {
+        SCHEMA_SELF_ATTEST => Some(6),  // v3 layout
+        _ => None,
+    }
+}
+
 /// Decode (recipient, amount) from canonical public_inputs bytes for the
 /// supported schemas. Slots are dictated by the snarkjs convention of
 /// "outputs first, then inputs":
@@ -372,13 +421,15 @@ fn decode_payment_schema(
     let recipient_hi_slot = match schema_id {
         SCHEMA_PAYMENT => 16usize,
         SCHEMA_RECLAIM_PAYMENT => 24usize,
-        // bounty circuit, ERC-8150-minimal layout (6 publics):
+        // bounty circuit, ERC-8150-minimal layout (7 publics):
         //   0: intent_root_pub
         //   1: recipient_hi
         //   2: recipient_lo
         //   3: amount
         //   4: attestor_Ax
         //   5: attestor_Ay
+        //   6: claim_subject  (e.g. GitHub user_id) — bound into pi_hash so
+        //                      the nullifier covers per-subject replay
         SCHEMA_SELF_ATTEST => 1usize,
         _ => return err!(GatewayError::UnsupportedSchema),
     };
@@ -436,6 +487,15 @@ pub struct NullifierSetPda {
     pub used: Vec<[u8; 32]>,
 }
 
+/// Per-subject nullifier set — keyed by (intent + claim_subject). Stops the
+/// same identity (e.g. GitHub user) from claiming twice under one intent
+/// even with different recipient addresses.
+#[account]
+pub struct SubjectNullifierSetPda {
+    pub intent: Pubkey,
+    pub used: Vec<[u8; 32]>,
+}
+
 #[derive(Accounts)]
 #[instruction(salt: [u8; 32])]
 pub struct RegisterIntent<'info> {
@@ -455,6 +515,14 @@ pub struct RegisterIntent<'info> {
         bump
     )]
     pub nullifier_set_pda: Account<'info, NullifierSetPda>,
+    #[account(
+        init,
+        payer = owner,
+        space = 8 + 32 + 4 + (32 * MAX_NULLIFIERS),
+        seeds = [b"snset", intent_pda.key().as_ref()],
+        bump
+    )]
+    pub subject_nullifier_set_pda: Account<'info, SubjectNullifierSetPda>,
     #[account(mut)]
     pub owner: Signer<'info>,
     pub system_program: Program<'info, System>,
@@ -467,6 +535,8 @@ pub struct ExecuteIntent<'info> {
     pub intent_pda: Account<'info, IntentPda>,
     #[account(mut, seeds = [b"nset", intent_pda.key().as_ref()], bump)]
     pub nullifier_set_pda: Account<'info, NullifierSetPda>,
+    #[account(mut, seeds = [b"snset", intent_pda.key().as_ref()], bump)]
+    pub subject_nullifier_set_pda: Account<'info, SubjectNullifierSetPda>,
     /// CHECK: address-checked at runtime against intent.verifier_program.
     pub verifier_program: AccountInfo<'info>,
     /// CHECK: passed through to verifier CPI; verifier asserts its own seeds.
@@ -520,6 +590,8 @@ pub struct ExecuteChunkedIntent<'info> {
     pub intent_pda: Account<'info, IntentPda>,
     #[account(mut, seeds = [b"nset", intent_pda.key().as_ref()], bump)]
     pub nullifier_set_pda: Account<'info, NullifierSetPda>,
+    #[account(mut, seeds = [b"snset", intent_pda.key().as_ref()], bump)]
+    pub subject_nullifier_set_pda: Account<'info, SubjectNullifierSetPda>,
     /// CHECK: receives the closed chunk-PDAs' rent refund.
     #[account(mut)]
     pub rent_recipient: AccountInfo<'info>,
@@ -554,6 +626,8 @@ pub struct ExecuteStagedIntent<'info> {
     pub intent_pda: Account<'info, IntentPda>,
     #[account(mut, seeds = [b"nset", intent_pda.key().as_ref()], bump)]
     pub nullifier_set_pda: Account<'info, NullifierSetPda>,
+    #[account(mut, seeds = [b"snset", intent_pda.key().as_ref()], bump)]
+    pub subject_nullifier_set_pda: Account<'info, SubjectNullifierSetPda>,
     /// PDA closed on success → rent refunded → replay impossible.
     #[account(mut, close = rent_recipient)]
     pub proof_pda: Account<'info, ProofBuffer>,
@@ -598,4 +672,6 @@ pub enum GatewayError {
     NullifierUsed,
     #[msg("InvalidVk")]
     InvalidVk,
+    #[msg("Subject already claimed under this intent (per-subject replay rejected)")]
+    SubjectNullifierUsed,
 }

@@ -368,6 +368,14 @@ def nset_pda(intent: Pubkey) -> Pubkey:
     return pda
 
 
+def subject_nset_pda(intent: Pubkey) -> Pubkey:
+    """Per-subject nullifier set — keyed by (intent + claim_subject). Stops
+    same identity from claiming twice under one intent regardless of
+    recipient/amount."""
+    pda, _ = Pubkey.find_program_address([b"snset", bytes(intent)], GATEWAY_PROGRAM_ID)
+    return pda
+
+
 def register_intent_ix(
     owner: Pubkey,
     salt: bytes,
@@ -382,6 +390,7 @@ def register_intent_ix(
 ) -> Instruction:
     intent = intent_pda(owner, salt)
     nset = nset_pda(intent)
+    snset = subject_nset_pda(intent)
     data = (
         disc("register_intent")
         + salt
@@ -400,6 +409,7 @@ def register_intent_ix(
         accounts=[
             AccountMeta(pubkey=intent, is_signer=False, is_writable=True),
             AccountMeta(pubkey=nset, is_signer=False, is_writable=True),
+            AccountMeta(pubkey=snset, is_signer=False, is_writable=True),
             AccountMeta(pubkey=owner, is_signer=True, is_writable=True),
             AccountMeta(pubkey=SYSTEM_PROGRAM_ID, is_signer=False, is_writable=False),
         ],
@@ -428,6 +438,7 @@ def execute_intent_ix(
         accounts=[
             AccountMeta(pubkey=intent, is_signer=False, is_writable=False),
             AccountMeta(pubkey=nset_pda(intent), is_signer=False, is_writable=True),
+            AccountMeta(pubkey=subject_nset_pda(intent), is_signer=False, is_writable=True),
             AccountMeta(pubkey=verifier_program, is_signer=False, is_writable=False),
             AccountMeta(pubkey=vk_pda(verifier_config), is_signer=False, is_writable=False),
             AccountMeta(pubkey=SYSVAR_INSTRUCTIONS, is_signer=False, is_writable=False),

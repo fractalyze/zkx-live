@@ -37,16 +37,16 @@ DEFAULT_VK = REPO / "circuits/build/bounty_vk.json"
 # the same intent_pda owned by the same payer, so subsequent stages can find
 # it without ambient state.
 #
-# v2 SALT — bumped because the v2 circuit changed VK (only 6 publics) AND
-# decode_payment_schema layout, so any v1 intent at the old address is
-# unusable. New intent gets a fresh PDA + fresh nullifier set.
-SALT = b"\x52" * 32
-NULLIFIER_SEED = b"\x52" * 32
+# v4 SALT — bumped because the gateway now requires a per-subject nullifier
+# set PDA (initialized in register_intent); old (v3) intents don't have it
+# so re-registering with a fresh salt gets the full account suite.
+SALT = b"\x54" * 32
+NULLIFIER_SEED = b"\x54" * 32
 
 # Bounty circuit metadata (matches programs/verifier-groth16-bn254 and
 # circuits/bounty/bounty.circom).
-SCHEMA_ID = 2          # SCHEMA_SELF_ATTEST (gateway decode for new layout)
-NR_PUBINPUTS = 6       # bounty circuit's public-input count (v2: ERC-8150 minimal)
+SCHEMA_ID = 2          # SCHEMA_SELF_ATTEST (gateway decode unchanged: slots 1,2,3)
+NR_PUBINPUTS = 7       # v3: ERC-8150 minimal + claim_subject (GitHub user_id)
 
 # Intent's `expiry` is 1 year out — long enough for a demo without
 # re-registering. cluster_id=1 == devnet/testnet generic per gateway code.

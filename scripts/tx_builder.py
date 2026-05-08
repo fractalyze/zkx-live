@@ -40,7 +40,7 @@ from solana.rpc.api import Client  # noqa: E402
 
 # Same SALT / SCHEMA_ID as scripts/setup-onchain.py — must match for the
 # intent_pda derivation to match what setup-onchain.py registered.
-SALT = b"\x52" * 32                  # v2 salt (matches setup-onchain.py v2)
+SALT = b"\x54" * 32                  # v4 salt (matches setup-onchain.py v4)
 SCHEMA_ID = 2
 
 PORT = int(os.environ.get("TX_BUILDER_PORT", "7100"))
@@ -98,7 +98,7 @@ def submit_claim(recipient_b58: str, proof_json: dict, public_signals: list[str]
     pi_bytes = lib.encode_public_inputs(public_signals)
     if len(proof_bytes) != 256:
         raise RuntimeError(f"proof must be 256 bytes, got {len(proof_bytes)}")
-    expected_pi_len = 6 * 32  # bounty circuit v2 (ERC-8150 minimal)
+    expected_pi_len = 7 * 32  # bounty circuit v3 (v2 layout + claim_subject)
     if len(pi_bytes) != expected_pi_len:
         raise RuntimeError(
             f"public_inputs must be {expected_pi_len} bytes, got {len(pi_bytes)}"
@@ -163,6 +163,63 @@ def health():
     )
 
 
+# Map gateway's Anchor error numbers (6000-base) to a short human label.
+# See programs/gateway/src/lib.rs `pub enum GatewayError`.
+GATEWAY_ERRORS = {
+    6000: "IntentExpired",
+    6001: "VerifierMismatch",
+    6002: "VerifierNoReturnData",
+    6003: "VerifierBadReturnData",
+    6004: "PublicInputsMismatch",
+    6005: "SchemaMismatch",
+    6006: "UnsupportedSchema",
+    6007: "SiblingMissing",
+    6008: "SiblingDisallowed",
+    6009: "SiblingMalformed",
+    6010: "PolicyRecipientMismatch",
+    6011: "PolicyAmountMismatch",
+    6012: "NullifierUsed",
+    6013: "InvalidVk",
+    6014: "SubjectNullifierUsed",
+}
+
+GATEWAY_ERROR_HUMAN = {
+    "NullifierUsed": "This (intent + recipient + amount) was already paid. Use a different recipient or wait for a new intent.",
+    "SubjectNullifierUsed": "Your GitHub account has already claimed this bounty. Only one claim per user.",
+    "IntentExpired": "The bounty intent has expired.",
+    "PolicyRecipientMismatch": "The transfer recipient doesn't match the proof.",
+    "PolicyAmountMismatch": "The transfer amount doesn't match the proof.",
+}
+
+
+def parse_rpc_error(exc) -> dict:
+    """Extract human-friendly fields from a solana-py RPCException for the
+    onchain simulation failure path. Returns dict suitable for JSON error
+    response."""
+    txt = str(exc)
+    # Try to pull the InstructionError(idx, Custom(N))
+    import re
+    m = re.search(r"Custom\((\d+)\)", txt)
+    code = int(m.group(1)) if m else None
+    name = GATEWAY_ERRORS.get(code) if code is not None else None
+    human = GATEWAY_ERROR_HUMAN.get(name or "")
+    # Best-effort log extraction so the modal still gets the proof-verified
+    # log when failure was downstream of the verifier.
+    logs = []
+    log_match = re.search(r"logs:\s*Some\(\[(.*?)\]\)", txt, re.DOTALL)
+    if log_match:
+        # Split on `", "` - each log is a quoted string in the Rust debug repr.
+        for raw in log_match.group(1).split('", "'):
+            logs.append(raw.strip(' "\\'))
+    return {
+        "kind": "onchain_error",
+        "error_code": code,
+        "error_name": name or "Unknown",
+        "message": human or (name or "On-chain transaction rejected."),
+        "logs": logs,
+    }
+
+
 @app.post("/submit")
 def submit():
     try:
@@ -172,10 +229,21 @@ def submit():
                 return jsonify(error=f"missing {k}"), 400
         out = submit_claim(body["recipient_b58"], body["proof"], body["public_signals"])
         return jsonify(out)
-    except Exception:
+    except Exception as e:
+        # Two paths produce on-chain errors here:
+        #   1. solana-py's RPCException (preflight simulation failure)
+        #   2. lib.send_tx wraps a confirmed-but-failed tx as RuntimeError
+        # Both stringify the InstructionErrorCustom(N) — try parse_rpc_error
+        # on any exception and surface a clean message if a Custom code is
+        # present; otherwise fall back to the traceback path.
+        parsed = parse_rpc_error(e)
+        if parsed["error_code"] is not None:
+            print(f"[tx_builder] onchain error: {parsed['error_name']} ({parsed['error_code']})")
+            replay_codes = {"NullifierUsed", "SubjectNullifierUsed"}
+            return jsonify(parsed), 409 if parsed["error_name"] in replay_codes else 422
         err = traceback.format_exc()
         print(f"[tx_builder] error:\n{err}")
-        return jsonify(error=err), 500
+        return jsonify(error=err, kind="server_error"), 500
 
 
 def main() -> None:

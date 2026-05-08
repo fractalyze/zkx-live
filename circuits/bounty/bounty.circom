@@ -144,5 +144,5 @@ template Bounty(merkleDepth) {
 }
 
 component main {
-    public [intent_root_pub, recipient, amount, attestor_Ax, attestor_Ay]
+    public [intent_root_pub, recipient, amount, attestor_Ax, attestor_Ay, claim_subject]
 } = Bounty(8);
