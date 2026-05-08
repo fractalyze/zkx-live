@@ -3,7 +3,6 @@ import { startSseResponse, writeSse } from '@/lib/sse';
 import { getSession } from '@/lib/session';
 import { buildWitness, generateProof } from '@/lib/services';
 import { submitClaimTx } from '@/lib/txBuilder';
-import { hasClaimed, markClaimed } from '@/lib/claimed';
 
 const REPO = process.env.GITHUB_REPO || 'octocat/Hello-World';
 const AMOUNT = parseInt(process.env.BOUNTY_AMOUNT || '5000000', 10);  // lamports
@@ -54,13 +53,10 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         return;
     }
 
-    // Replay guard. Same (subject, object) the circuit's nullifier covers.
-    if (hasClaimed(session.id, REPO)) {
-        res.status(409).json({
-            error: `@${session.login} already claimed the bounty for ${REPO}.`,
-        });
-        return;
-    }
+    // No backend replay guard — the gateway program enforces nullifier
+    // (per intent + recipient + amount + attestor) on-chain. A replay just
+    // gets a clean NullifierUsed error from the chain, surfaced as the
+    // submit-step error in the modal.
 
     startSseResponse(res);
     const t0 = Date.now();
@@ -116,9 +112,6 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         });
         const submitMs = Date.now() - tSubmit;
         writeSse(res, 'step', { key: 'submit', state: 'done', timing_ms: submitMs });
-
-        // Mark claimed only AFTER the on-chain tx confirmed.
-        markClaimed(session.id, REPO);
 
         writeSse(res, 'done', {
             tx_sig: submit.tx_sig,

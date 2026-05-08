@@ -36,6 +36,10 @@ type Props = {
     error?: string;
 };
 
+// One persistent layout: the per-step timings stay visible (the whole point
+// of the demo is to show they're each sub-200 ms), and the success / error
+// payload appends below — never replaces. Closing the modal is a separate
+// explicit action.
 export function ClaimModal({
     open,
     repo,
@@ -46,105 +50,87 @@ export function ClaimModal({
 }: Props) {
     if (!open) return null;
 
+    const settled = result !== undefined || error !== undefined;
+
     return (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
             <div className="w-full max-w-md rounded-2xl border border-white/10 bg-bg p-8 shadow-2xl">
-                {result ? (
-                    <SuccessView result={result} onClose={onClose} />
-                ) : error ? (
-                    <ErrorView error={error} onClose={onClose} />
-                ) : (
-                    <ProgressView repo={repo} steps={steps} onClose={onClose} />
+                <div className="text-sm uppercase tracking-widest text-muted">
+                    {settled ? 'Bounty claimed' : 'Claiming bounty for'}{' '}
+                    <span className="font-mono text-fg/70">{repo}</span>
+                </div>
+
+                <div className="mt-6 divide-y divide-white/5">
+                    <ProgressStep
+                        label={STEP_LABELS.star}
+                        state={steps.star.state}
+                        timing_ms={steps.star.timing_ms}
+                    />
+                    <ProgressStep
+                        label={STEP_LABELS.witness}
+                        state={steps.witness.state}
+                        timing_ms={steps.witness.timing_ms}
+                    />
+                    <ProgressStep
+                        label={STEP_LABELS.prove}
+                        state={steps.prove.state}
+                        timing_ms={steps.prove.timing_ms}
+                        emphasize
+                    />
+                    <ProgressStep
+                        label={STEP_LABELS.submit}
+                        state={steps.submit.state}
+                        timing_ms={steps.submit.timing_ms}
+                    />
+                </div>
+
+                {result && <SuccessFooter result={result} onClose={onClose} />}
+                {error && <ErrorFooter error={error} onClose={onClose} />}
+                {!settled && (
+                    <button
+                        onClick={onClose}
+                        className="mt-6 w-full rounded-lg border border-white/10 px-4 py-2 text-sm text-muted hover:text-fg"
+                    >
+                        Cancel
+                    </button>
                 )}
             </div>
         </div>
     );
 }
 
-function ProgressView({
-    repo,
-    steps,
-    onClose,
-}: {
-    repo: string;
-    steps: Record<StepKey, StepStatus>;
-    onClose: () => void;
-}) {
+function SuccessFooter({ result, onClose }: { result: ClaimResult; onClose: () => void }) {
     return (
-        <>
-            <div className="text-sm uppercase tracking-widest text-muted">
-                Claiming bounty for{' '}
-                <span className="font-mono text-fg/70">{repo}</span>
+        <div className="mt-6 border-t border-white/10 pt-6">
+            <div className="text-center text-xl">
+                ✅ <span className="font-semibold">Paid!</span>{' '}
+                <span className="text-muted text-sm">
+                    {result.amount_human} → {short(result.recipient)}
+                </span>
             </div>
 
-            <div className="mt-6 divide-y divide-white/5">
-                <ProgressStep
-                    label={STEP_LABELS.star}
-                    state={steps.star.state}
-                    timing_ms={steps.star.timing_ms}
-                />
-                <ProgressStep
-                    label={STEP_LABELS.witness}
-                    state={steps.witness.state}
-                    timing_ms={steps.witness.timing_ms}
-                />
-                <ProgressStep
-                    label={STEP_LABELS.prove}
-                    state={steps.prove.state}
-                    timing_ms={steps.prove.timing_ms}
-                    emphasize
-                />
-                <ProgressStep
-                    label={STEP_LABELS.submit}
-                    state={steps.submit.state}
-                    timing_ms={steps.submit.timing_ms}
-                />
-            </div>
-
-            <button
-                onClick={onClose}
-                className="mt-6 w-full rounded-lg border border-white/10 px-4 py-2 text-sm text-muted hover:text-fg"
-            >
-                Cancel
-            </button>
-        </>
-    );
-}
-
-function SuccessView({ result, onClose }: { result: ClaimResult; onClose: () => void }) {
-    return (
-        <div className="text-center">
-            <div className="text-5xl">✅</div>
-            <div className="mt-3 text-2xl font-semibold">Paid!</div>
-            <div className="mt-1 text-sm text-muted">
-                {result.amount_human} sent to your wallet
-            </div>
-
-            <div className="mt-5 break-all rounded-lg border border-white/10 bg-white/[0.03] p-3 font-mono text-xs">
-                tx {result.tx_sig}
-            </div>
-
-            <div className="mt-4 flex justify-center gap-6 text-xs text-muted tabular-nums">
-                <span>
+            <div className="mt-3 flex justify-center gap-6 text-xs tabular-nums">
+                <span className="text-muted">
                     Total{' '}
                     <span className="font-semibold text-fg">
-                        {(result.total_ms / 1000).toFixed(1)} s
+                        {(result.total_ms / 1000).toFixed(2)} s
                     </span>
                 </span>
-                <span>
+                <span className="text-muted">
                     ZK proof{' '}
-                    <span className="font-semibold text-accent">{result.proof_ms} ms</span>
+                    <span className="font-semibold text-accent">{result.proof_ms} ms ⚡</span>
                 </span>
             </div>
 
-            <div className="mt-6 flex flex-col gap-2">
+            <div className="mt-4 flex flex-col gap-2">
                 <a
                     href={result.explorer_url}
                     target="_blank"
                     rel="noreferrer"
-                    className="block w-full rounded-lg border border-accent px-4 py-2 text-sm font-medium text-accent hover:bg-accent/10"
+                    className="block w-full break-all rounded-lg border border-accent px-4 py-2 text-center font-mono text-xs text-accent hover:bg-accent/10"
+                    title={result.tx_sig}
                 >
-                    View on Solana Explorer ↗
+                    {result.explorer_url} ↗
                 </a>
                 <button
                     onClick={onClose}
@@ -157,18 +143,25 @@ function SuccessView({ result, onClose }: { result: ClaimResult; onClose: () => 
     );
 }
 
-function ErrorView({ error, onClose }: { error: string; onClose: () => void }) {
+function ErrorFooter({ error, onClose }: { error: string; onClose: () => void }) {
+    // Long stack traces from Python tx_builder land here — keep the modal
+    // narrow and let the message wrap, no horizontal scroll.
     return (
-        <div>
-            <div className="text-2xl">❌</div>
-            <div className="mt-3 text-lg font-semibold">Couldn&apos;t claim</div>
-            <div className="mt-2 break-words text-sm text-err">{error}</div>
+        <div className="mt-6 border-t border-white/10 pt-6">
+            <div className="text-lg font-semibold">❌ Couldn&apos;t claim</div>
+            <div className="mt-2 max-h-48 overflow-y-auto break-words rounded-lg border border-err/30 bg-err/[0.04] p-3 text-xs text-err">
+                {error}
+            </div>
             <button
                 onClick={onClose}
-                className="mt-6 w-full rounded-lg border border-white/10 px-4 py-2 text-sm hover:bg-white/5"
+                className="mt-4 w-full rounded-lg border border-white/10 px-4 py-2 text-sm hover:bg-white/5"
             >
                 Close
             </button>
         </div>
     );
+}
+
+function short(s: string): string {
+    return s.length > 12 ? `${s.slice(0, 6)}…${s.slice(-4)}` : s;
 }
