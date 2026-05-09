@@ -71,3 +71,13 @@ rabbitsnark-fix.patch
 # nextjs build cache
 **/.next/
 
+# Per-app build caches
+**/tsconfig.tsbuildinfo
+
+# Local design exploration drafts (not part of the shipped site)
+apps/site/THEME*_KR.md
+sketches/
+
+# Vercel CLI link state (already self-ignored, listed for clarity)
+.vercel
+
