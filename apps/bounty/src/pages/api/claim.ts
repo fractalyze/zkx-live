@@ -91,10 +91,18 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         writeSse(res, 'step', { key: 'witness', state: 'done', timing_ms: witMs });
 
         // ── Step 3: generate ZK proof ───────────────────────────────────────
+        // The step's timing_ms is the wall-clock time the bounty handler
+        // spent inside generateProof — HTTP roundtrip to the prover service
+        // included — so the four step times sum to total_ms (modulo SSE
+        // dispatch jitter). The internal kernel-only time stays surfaced
+        // as `proof_ms` in the final 'done' event, where it's the SOTA
+        // number we want to show off.
         writeSse(res, 'step', { key: 'prove', state: 'running' });
+        const tProve = Date.now();
         const proof = await generateProof(wit.wtns_path);
+        const proveMs = Date.now() - tProve;
         proofMsInternal = proof.timing_ms?.proof ?? proof.timing_ms?.wall ?? 0;
-        writeSse(res, 'step', { key: 'prove', state: 'done', timing_ms: proofMsInternal });
+        writeSse(res, 'step', { key: 'prove', state: 'done', timing_ms: proveMs });
 
         // ── Step 4: submit Solana tx via gateway ────────────────────────────
         // Hands the proof + public_signals to the local tx_builder service
