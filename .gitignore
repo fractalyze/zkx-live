@@ -67,3 +67,7 @@ rabbitsnark-fix.patch
 
 # Track these specifically
 !programs/*/keypair.json
+
+# nextjs build cache
+**/.next/
+

@@ -1,0 +1,37 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/*
+ * zkx product page typography. Inter for body, JetBrains Mono for
+ * numerals + technical labels. Light theme only — the page is a
+ * product introduction, not a doc, and the visual rhythm is built
+ * around figures, charts, and a single accent color.
+ */
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap');
+
+:root {
+    color-scheme: light;
+}
+
+html, body {
+    background: theme('colors.page');
+    color: theme('colors.ink');
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+}
+
+body {
+    font-family: theme('fontFamily.sans');
+    font-feature-settings: 'cv11', 'ss01';
+}
+
+/* Focal numerals (242 ms, 86×, etc.) lean on tabular nums for stability */
+.tabular {
+    font-variant-numeric: tabular-nums;
+}
+
+/* Anchor scroll offset for the thin top nav */
+section[id] {
+    scroll-margin-top: 64px;
+}
