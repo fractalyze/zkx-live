@@ -8,6 +8,31 @@ composed-verification circuits; zkX cuts the prove step to ~140 ms
 warm steady-state — fast enough to hide behind ordinary HTTPS
 roundtrips.
 
+**Live**: <https://zkx-live.vercel.app>
+
+---
+
+## What's on the site
+
+Single-page product introduction at <https://zkx-live.vercel.app>:
+
+1. **Hero** — compiler-stack diagram (sources → zkX core with PrimeIR
+   → CPU/GPU/ZK ASIC backends).
+2. **Performance** — primitive kernel benchmarks (FFT, IFFT, MSM,
+   SMCS, LOGUP GKR) on real measured numbers from an RTX 5090.
+3. **Applications** — two competitive cards: Groth16 vs Gnark+ICICLE
+   (`2.49 s` vs `4.90 s`, ~2×) and zkVM vs SP1 Hypercube
+   (`7.00 s` vs `10.30 s`, ~1.5×).
+4. **Live demo** — sign in with GitHub → star repo → click claim →
+   watch the four-stage SSE flow (star → witness → prove → submit) →
+   land 0.01 SOL on a recipient address you supply, devnet.
+5. **Grants** — Ethereum Foundation + NVIDIA Inception.
+
+The site is `apps/site` (Next.js Pages Router, deployed to Vercel).
+It reverse-proxies `/api/*` to `apps/bounty` on the GPU box, so the
+demo runs same-origin from the browser. See
+[`apps/README.md`](apps/README.md) for the per-endpoint breakdown.
+
 ---
 
 ## ⚠️ About the prover
