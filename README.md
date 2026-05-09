@@ -3,35 +3,62 @@
 > *Snap a verifiable proof on Solana — in milliseconds.*
 
 A real-time ZK payment-gateway demo on Solana, accelerated by **zkX**.
-Vanilla Groth16 provers (snarkjs) take seconds for real-world
-composed-verification circuits; zkX cuts the prove step to ~140 ms
-warm steady-state — fast enough to hide behind ordinary HTTPS
-roundtrips.
 
 **Live**: <https://zkx-live.vercel.app>
 
 ---
 
-## What's on the site
+## What zkX is
 
-Single-page product introduction at <https://zkx-live.vercel.app>:
+**zkX** is a proof compiler. **PrimeIR** is the optimization layer
+beneath it. Together they take circuits and proving workloads and
+compile them into optimized primitive kernels across schemes (Groth16,
+zkVM) and hardware targets (CPU, GPU, future ZK ASIC).
 
-1. **Hero** — compiler-stack diagram (sources → zkX core with PrimeIR
-   → CPU/GPU/ZK ASIC backends).
-2. **Performance** — primitive kernel benchmarks (FFT, IFFT, MSM,
-   SMCS, LOGUP GKR) on real measured numbers from an RTX 5090.
-3. **Applications** — two competitive cards: Groth16 vs Gnark+ICICLE
-   (`2.49 s` vs `4.90 s`, ~2×) and zkVM vs SP1 Hypercube
-   (`7.00 s` vs `10.30 s`, ~1.5×).
-4. **Live demo** — sign in with GitHub → star repo → click claim →
-   watch the four-stage SSE flow (star → witness → prove → submit) →
-   land 0.01 SOL on a recipient address you supply, devnet.
-5. **Grants** — Ethereum Foundation + NVIDIA Inception.
+```
+  inputs                 zkX compiler                backends
+  ─────                  ────────────                ────────
+  circom         ┐       ┌────────────────┐       ┌─ CPU
+  zkVM (SP1)     ├──────▶│  PrimeIR       │──────▶├─ GPU
+  custom circuit ┘       │  ↓ rewrite     │       └─ ZK ASIC (planned)
+                         │  ↓ fusion      │
+                         │  ↓ layout      │
+                         │  ↓ lowering    │
+                         └────────────────┘
+```
 
-The site is `apps/site` (Next.js Pages Router, deployed to Vercel).
-It reverse-proxies `/api/*` to `apps/bounty` on the GPU box, so the
-demo runs same-origin from the browser. See
-[`apps/README.md`](apps/README.md) for the per-endpoint breakdown.
+Instead of hand-tuning each proving flow, the same compiler stack
+emits optimized kernels for whatever (scheme × hardware) target the
+caller asks for.
+
+---
+
+## Performance
+
+All numbers measured on **RTX 5090**. Source data lives in
+`apps/site/src/components/PerfCharts.tsx`.
+
+### Primitive kernels
+
+| Kernel | Field · degree | Baseline | zkX | Speedup |
+| --- | --- | --- | --- | --- |
+| FFT | bn254 · d22 | Gnark 28.334 ms | **1.997 ms** | 14.2× |
+| IFFT | bn254 · d22 | Gnark 28.835 ms | **2.066 ms** | 14.0× |
+| MSM | bn254 · d22 | Gnark 56.380 ms | **29.835 ms** | 1.9× |
+| SMCS | koalabear · d20 | SP1 1.736 ms | **1.321 ms** | 1.3× |
+| LOGUP GKR | koalabear · d22 | SP1 108.394 ms | **38.438 ms** | 2.8× |
+
+### End-to-end applications
+
+| Workload | Baseline (SOTA) | zkX | Speedup |
+| --- | --- | --- | --- |
+| Groth16 prove · SP1 STARK verifier (~5–6 M constraints, BN254) | Gnark + ICICLE 4.90 s | **2.49 s** | ~2× |
+| zkVM block proof · Ethereum block #22,309,250 | SP1 Hypercube 10.30 s | **7.00 s** | ~1.5× |
+
+The Groth16 baseline is what Ingonyama publicly calls "the fastest
+Groth16 prover implementation" (ICICLE-snark, Mar 2025). The zkVM
+baseline (SP1 Hypercube) currently holds the fastest end-to-end zkVM
+block proof latency.
 
 ---
 
