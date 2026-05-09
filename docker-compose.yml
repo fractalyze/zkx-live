@@ -1,0 +1,107 @@
+# Production stack for zkx-live (excluding the prover, which runs as a host
+# process — see docs/zkx-prover-not-containerizable rationale).
+#
+# Topology:
+#   ┌───────────── zkx-net (internal) ─────────────┐
+#   │  witness:7001   tx_builder:7100              │
+#   │      ▲                ▲                       │
+#   │      └──── bounty ────┘                       │
+#   └─────────────┬─────────────────────────────────┘
+#                 │ host port 3002
+#                 ▼
+#         (Tailscale Funnel → public HTTPS)
+#
+#   bounty also reaches the host-process prover via host.docker.internal:9090
+#   (extra_hosts adds host-gateway).
+#
+# Required env (read by start.sh from .env at repo root):
+#   GITHUB_CLIENT_ID, GITHUB_CLIENT_SECRET, COOKIE_SECRET, APP_URL,
+#   SOLANA_RPC_URL, ATTESTOR_PRIV_HEX
+#
+# Volume sources are paths on the host — see start.sh for what must exist.
+
+services:
+  bounty:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.bounty
+    image: zkx-live/bounty:latest
+    container_name: zkx-bounty
+    restart: unless-stopped
+    ports:
+      - "3002:3002"
+    environment:
+      NODE_ENV: production
+      WITNESS_URL: http://witness:7001
+      PROVER_URL: http://host.docker.internal:9090
+      TX_BUILDER_URL: http://tx_builder:7100
+      GITHUB_REPO: ${GITHUB_REPO:-fractalyze/zkx-live}
+      BOUNTY_AMOUNT: ${BOUNTY_AMOUNT:-5000000}
+      BOUNTY_AMOUNT_HUMAN: ${BOUNTY_AMOUNT_HUMAN:-5 USDC}
+      GITHUB_CLIENT_ID: ${GITHUB_CLIENT_ID}
+      GITHUB_CLIENT_SECRET: ${GITHUB_CLIENT_SECRET}
+      COOKIE_SECRET: ${COOKIE_SECRET}
+      APP_URL: ${APP_URL}
+      ATTESTOR_PRIV_HEX: ${ATTESTOR_PRIV_HEX}
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    volumes:
+      # Shared with witness so bounty can readFile() the .wtns the witness
+      # service just wrote. Witness returns a path; bounty loads the bytes
+      # before forwarding to prover. Without this mount, bounty would hit
+      # ENOENT in its own (separate) /tmp.
+      - witness-work:/tmp/zkx-live
+    networks:
+      - zkx-net
+    depends_on:
+      - witness
+      - tx_builder
+
+  witness:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.witness
+    image: zkx-live/witness:latest
+    container_name: zkx-witness
+    restart: unless-stopped
+    expose:
+      - "7001"
+    environment:
+      WITNESS_HOST: 0.0.0.0
+    volumes:
+      # Built circom artifacts (zkeys + C++ witness binaries). Read-only —
+      # rebuild on host with `bash setup.sh`, no image rebuild needed.
+      - ./circuits:/circuits:ro
+      # /tmp/zkx-live is shared with the bounty container — witness writes
+      # the .wtns there, bounty readFile()s it before forwarding to prover.
+      - witness-work:/tmp/zkx-live
+    networks:
+      - zkx-net
+
+  tx_builder:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.tx_builder
+    image: zkx-live/tx_builder:latest
+    container_name: zkx-tx-builder
+    restart: unless-stopped
+    expose:
+      - "7100"
+    environment:
+      SOLANA_RPC_URL: ${SOLANA_RPC_URL:-https://api.devnet.solana.com}
+      TX_BUILDER_HOST: 0.0.0.0
+    volumes:
+      - /tmp/zkx-bounty-keys/bounty.json:/secrets/bounty.json:ro
+      - ./circuits:/circuits:ro
+    networks:
+      - zkx-net
+
+networks:
+  zkx-net:
+    driver: bridge
+
+volumes:
+  # Bridge between witness (writer) and bounty (reader) for the .wtns
+  # blob handed off mid-claim. Tmpfs-style — contents are ephemeral and
+  # short-lived (seconds, then bounty consumes + forwards to prover).
+  witness-work:

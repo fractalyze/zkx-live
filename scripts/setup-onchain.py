@@ -37,11 +37,11 @@ DEFAULT_VK = REPO / "circuits/build/bounty_vk.json"
 # the same intent_pda owned by the same payer, so subsequent stages can find
 # it without ambient state.
 #
-# v4 SALT — bumped because the gateway now requires a per-subject nullifier
-# set PDA (initialized in register_intent); old (v3) intents don't have it
-# so re-registering with a fresh salt gets the full account suite.
-SALT = b"\x54" * 32
-NULLIFIER_SEED = b"\x54" * 32
+# v5 SALT — bumped to give a fresh per-subject nullifier set (v4 was used
+# during dev and accumulated test claims under individual GitHub accounts).
+# tx_builder.py's SALT must match.
+SALT = b"\x55" * 32
+NULLIFIER_SEED = b"\x55" * 32
 
 # Bounty circuit metadata (matches programs/verifier-groth16-bn254 and
 # circuits/bounty/bounty.circom).

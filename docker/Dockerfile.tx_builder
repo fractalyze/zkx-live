@@ -1,0 +1,39 @@
+# syntax=docker/dockerfile:1.7
+#
+# tx_builder — Flask service that encodes the proof + public_signals
+# into the gateway program's expected format and submits the
+# execute_chunked_intent + sibling System.transfer in a single tx.
+#
+# scripts/tx_builder.py imports apps/lib.py (gateway helpers — proof_a
+# pre-negation, ix discriminators, PDA derivation, chunked staging).
+# tx_builder only calls the pure-Python parts of lib.py — no shell-out
+# to the solana CLI.
+#
+# Mounts (compose):
+#   /secrets/bounty.json     → bounty wallet keypair (read-only)
+#   /circuits/build/...      → bounty_vk.json (read-only)
+
+FROM python:3.11-slim
+
+WORKDIR /app
+
+# pip resolves transitive deps (httpx, construct, etc.) automatically.
+RUN pip install --no-cache-dir \
+        flask==3.1.* \
+        solana==0.36.* \
+        solders==0.27.*
+
+# Bring in only what tx_builder.py imports
+COPY apps/lib.py        ./apps/lib.py
+COPY scripts/tx_builder.py ./scripts/tx_builder.py
+
+# tx_builder.py does `sys.path.insert(0, REPO/'apps')` from the file's
+# parent — so REPO = /app, and lib.py at /app/apps/lib.py works.
+
+ENV TX_BUILDER_PORT=7100
+ENV BOUNTY_WALLET_PATH=/secrets/bounty.json
+ENV BOUNTY_VK_JSON=/circuits/build/bounty_vk.json
+ENV PYTHONUNBUFFERED=1
+
+EXPOSE 7100
+CMD ["python", "scripts/tx_builder.py"]

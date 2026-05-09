@@ -132,8 +132,12 @@ for (const circuit of Object.keys(BUILDERS)) {
 
 app.use((_req, res) => res.status(404).json({ error: 'not found' }));
 
-app.listen(PORT, '127.0.0.1', () => {
-    console.log(`[witness] ready  http://127.0.0.1:${PORT}`);
+// Default 127.0.0.1 so plain `node app.js` on a dev host stays
+// loopback-only. Override to 0.0.0.0 in containers (compose sets
+// WITNESS_HOST=0.0.0.0) so peers on the network can reach us.
+const HOST = process.env.WITNESS_HOST ?? '127.0.0.1';
+app.listen(PORT, HOST, () => {
+    console.log(`[witness] ready  http://${HOST}:${PORT}`);
     console.log(`           CIRCUITS_DIR = ${CIRCUITS_DIR}`);
     console.log(`           WORK_DIR     = ${WORK_DIR}`);
 });

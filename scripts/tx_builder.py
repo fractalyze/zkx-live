@@ -40,7 +40,7 @@ from solana.rpc.api import Client  # noqa: E402
 
 # Same SALT / SCHEMA_ID as scripts/setup-onchain.py — must match for the
 # intent_pda derivation to match what setup-onchain.py registered.
-SALT = b"\x54" * 32                  # v4 salt (matches setup-onchain.py v4)
+SALT = b"\x55" * 32                  # v5 salt (matches setup-onchain.py v5)
 SCHEMA_ID = 2
 
 PORT = int(os.environ.get("TX_BUILDER_PORT", "7100"))
@@ -249,8 +249,12 @@ def submit():
 def main() -> None:
     bal = CLIENT.get_balance(PAYER.pubkey()).value / 1e9
     print(f"[tx_builder] balance={bal:.4f} SOL")
-    print(f"[tx_builder] ready  http://127.0.0.1:{PORT}")
-    app.run(host="127.0.0.1", port=PORT, threaded=True, debug=False)
+    # Default 127.0.0.1 so the dev host stays loopback-only. In compose
+    # the container needs to accept traffic from peers on the bridge
+    # network → set TX_BUILDER_HOST=0.0.0.0.
+    host = os.environ.get("TX_BUILDER_HOST", "127.0.0.1")
+    print(f"[tx_builder] ready  http://{host}:{PORT}")
+    app.run(host=host, port=PORT, threaded=True, debug=False)
 
 
 if __name__ == "__main__":

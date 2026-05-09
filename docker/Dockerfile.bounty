@@ -1,0 +1,35 @@
+# syntax=docker/dockerfile:1.7
+#
+# bounty — Next.js (pages router) backend for the OAuth + claim flow.
+# Build context: repo root (compose sets `context: .`).
+#
+# Three stages: deps (cache npm), build (next build → standalone output),
+# run (slim runtime, no source). next.config.js sets output:'standalone'.
+
+# ---------------- deps ----------------
+FROM node:20-bookworm-slim AS deps
+WORKDIR /app
+COPY apps/bounty/package.json apps/bounty/package-lock.json ./
+RUN npm ci
+
+# ---------------- build ----------------
+FROM node:20-bookworm-slim AS build
+WORKDIR /app
+COPY --from=deps /app/node_modules ./node_modules
+COPY apps/bounty .
+RUN npm run build
+
+# ---------------- run ----------------
+FROM node:20-bookworm-slim AS run
+WORKDIR /app
+ENV NODE_ENV=production
+ENV PORT=3002
+ENV HOSTNAME=0.0.0.0
+
+# Standalone bundle includes server.js + minimal node_modules
+COPY --from=build /app/.next/standalone ./
+COPY --from=build /app/.next/static ./.next/static
+COPY --from=build /app/public ./public
+
+EXPOSE 3002
+CMD ["node", "server.js"]

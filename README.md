@@ -259,10 +259,72 @@ setup.sh                            Clone deps, download ptau, install npm
 
 ---
 
+## Production deploy
+
+Split topology — frontend on Vercel, backend on the GPU box:
+
+```
+[ Vercel: apps/site ]
+          │
+          │ /api/auth/* /api/claim /api/star-state
+          │ rewritten to ${BOUNTY_ORIGIN}
+          ▼
+[ This box, exposed via Tailscale Funnel ]
+  ┌───── docker compose ─────┐
+  │ bounty   :3002 (public)  │
+  │ witness  :7001 (internal)│
+  │ tx_builder :7100 (int.)  │
+  └───────────────┬──────────┘
+                  │ host.docker.internal:9090
+                  ▼
+       prover :9090  (host process — closed-source zkX SDK,
+                      can't go in the compose network)
+```
+
+**Why prover stays out of compose:** `prover/requirements.txt` only has
+flask + numpy; the heavy deps (`rabbitsnark`, `zk_dtypes`, `jax*`,
+`zkx-cuda-pjrt`) come from the closed-source zkX SDK and are not on
+PyPI. The compose network reaches it via `host.docker.internal:9090`.
+
+### One-time setup
+
+```bash
+cp .env.example .env             # fill in GitHub OAuth + COOKIE_SECRET + ATTESTOR_PRIV_HEX
+cp apps/site/.env.production.example apps/site/.env.production
+
+bash setup.sh                    # circuits + zkeys + program keypairs
+# install zkX SDK into /tmp/zkx-prover-venv (separate, see internal docs)
+```
+
+### Bring the stack up / down
+
+```bash
+bash scripts/start.sh            # prover + docker compose + tailscale funnel
+bash scripts/status.sh           # health-check all 4 + funnel URL
+bash scripts/stop.sh             # reverse, in dependency order
+```
+
+`scripts/start.sh` prints the public URL — paste it into Vercel as
+`BOUNTY_ORIGIN` (Project Settings → Environment Variables → Production)
+and update the GitHub OAuth callback to `${VERCEL_URL}/api/auth/callback`.
+
+### Vercel project
+
+Import the monorepo and set:
+- **Root Directory**: `apps/site`
+- **Build Command**: `next build` (default)
+- **Env**: `BOUNTY_ORIGIN=https://<gpu-box>.<tailnet>.ts.net`
+
+That's it — apps/site is static + a thin reverse-proxy; no backend code
+runs on Vercel.
+
+---
+
 ## Status
 
 - ✅ Both demos passing on-chain
 - ✅ Long-running zkX prover service (warm steady-state ~140 ms)
 - ✅ Click → bounty paid e2e demo with real GitHub API check
-- 🔜 Web frontend
+- ✅ Web frontend (apps/site → Vercel)
+- ✅ Production deploy: docker compose + Tailscale Funnel
 - 🔜 Production: replace self-attestor with Reclaim MPC or Opacity TEE

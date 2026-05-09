@@ -1,0 +1,20 @@
+# Build context is the repo root for all three Dockerfiles. Keep it small.
+**/node_modules
+**/.next
+**/.cache
+**/__pycache__
+**/.pytest_cache
+target
+prover
+sketches
+docs
+README.md
+.git
+.github
+.idea
+.vscode
+.env
+.env.*
+!.env.example
+*.log
+.DS_Store

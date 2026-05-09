@@ -1,0 +1,34 @@
+# syntax=docker/dockerfile:1.7
+#
+# witness — Node service that builds inputs (Poseidon/Merkle/EdDSA) and
+# spawns the circom-emitted C++ witness generator.
+#
+# circuits/ is bind-mounted at runtime (read-only) so the prebuilt
+# binaries (circuits/build/<c>_cpp/<c>) and zkeys are visible without
+# baking them into the image. The C++ binaries are dynamically linked
+# against glibc + libgmp + libstdc++.
+#
+# Base must satisfy the binary's required glibc version — host built on
+# Ubuntu 24.04 (GLIBC 2.39, GLIBCXX 3.4.32) so the container needs
+# trixie (Debian 13, GLIBC 2.41). bookworm (2.36) fails at runtime
+# with "version `GLIBC_2.38' not found".
+
+FROM node:20-trixie-slim
+
+# libgmp10 is required by the circom-emitted witness binary.
+# libstdc++/libgcc come with the node:trixie image already.
+RUN apt-get update \
+ && apt-get install -y --no-install-recommends libgmp10 \
+ && rm -rf /var/lib/apt/lists/*
+
+WORKDIR /app
+COPY witness/package.json witness/package-lock.json ./
+RUN npm ci --omit=dev
+COPY witness/ ./
+
+ENV WITNESS_PORT=7001
+ENV CIRCUITS_DIR=/circuits
+ENV WITNESS_WORK_DIR=/tmp/zkx-live
+
+EXPOSE 7001
+CMD ["node", "app.js"]
