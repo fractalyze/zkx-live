@@ -4,7 +4,7 @@ import { ClaimForm } from '@/components/ClaimForm';
 import { ClaimModal } from '@/components/ClaimModal';
 import { useClaim } from '@/lib/useClaim';
 
-const REPO = 'fractalyze/zkx-snap';
+const REPO = 'fractalyze/zkx-live';
 const AMOUNT_HUMAN = '0.01 SOL';
 
 type AuthState =
@@ -40,9 +40,9 @@ export default function Home() {
     return (
         <main className="mx-auto flex min-h-screen max-w-xl flex-col gap-8 px-4 py-12">
             <header className="flex items-baseline justify-between">
-                <div className="font-mono text-sm text-muted">🛡️ zkx-snap</div>
+                <div className="font-mono text-sm text-muted">🛡️ zkx-live</div>
                 <a
-                    href="https://github.com/fractalyze/zkx-snap"
+                    href="https://github.com/fractalyze/zkx-live"
                     target="_blank"
                     rel="noreferrer"
                     className="text-xs text-muted hover:text-fg"

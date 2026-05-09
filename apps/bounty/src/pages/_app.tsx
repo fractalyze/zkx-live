@@ -6,7 +6,7 @@ export default function App({ Component, pageProps }: AppProps) {
     return (
         <>
             <Head>
-                <title>zkx-snap bounty</title>
+                <title>zkx-live bounty</title>
                 <meta name="viewport" content="width=device-width, initial-scale=1" />
                 <meta
                     name="description"

@@ -24,7 +24,7 @@ const CIRCUITS_DIR = resolve(WITNESS_DIR, '..', 'circuits');
 
 const PORT = 17_001;          // distinct from prod 7001 to avoid clashes
 const BASE = `http://127.0.0.1:${PORT}`;
-const WORK = '/tmp/zkx-snap-e2e';
+const WORK = '/tmp/zkx-live-e2e';
 
 const RECIPIENT = '9WzDXwBbmkg8ZTbNMqUxvQRAyrZzDsGYdLVL9zYtAWWM';
 const OTHER     = '5T2VVxXk4P6dpqkR7K9HfJYqnRpWLHkD8RbT3wKjPnXY';

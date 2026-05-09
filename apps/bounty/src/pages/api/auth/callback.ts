@@ -14,7 +14,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         headers: {
             Accept: 'application/json',
             'Content-Type': 'application/json',
-            'User-Agent': 'zkx-snap-bounty',
+            'User-Agent': 'zkx-live-bounty',
         },
         body: JSON.stringify({
             client_id: process.env.GITHUB_CLIENT_ID,
@@ -32,7 +32,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         headers: {
             Authorization: `Bearer ${tokenData.access_token}`,
             Accept: 'application/vnd.github+json',
-            'User-Agent': 'zkx-snap-bounty',
+            'User-Agent': 'zkx-live-bounty',
         },
     });
     if (!userResp.ok) {
@@ -46,5 +46,29 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         login: user.login,
         id: user.id,
     }));
-    res.redirect('/');
+
+    // Render a tiny HTML page that:
+    //   - if opened in a popup window: post a message to the parent and
+    //     close itself (so the underlying page never navigates away)
+    //   - otherwise (regular full-page nav): redirect to / so the user
+    //     lands somewhere sensible. The page will pick up the cookie
+    //     on next /api/auth/me probe.
+    res.setHeader('Content-Type', 'text/html; charset=utf-8');
+    res.send(`<!DOCTYPE html>
+<html><head><meta charset="utf-8"><title>Signed in</title></head>
+<body style="font-family:ui-monospace,monospace;background:#fafafa;color:#0b0f17;padding:24px">
+<p>Signed in. You can close this window.</p>
+<script>
+  (function(){
+    try {
+      if (window.opener && !window.opener.closed) {
+        window.opener.postMessage({ type: 'zkx-auth-complete' }, '*');
+        window.close();
+        return;
+      }
+    } catch (e) { /* fall through to redirect */ }
+    window.location.replace('/');
+  })();
+</script>
+</body></html>`);
 }

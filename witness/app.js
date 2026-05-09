@@ -21,7 +21,7 @@
 // Env:
 //   WITNESS_PORT     (default 7001)
 //   CIRCUITS_DIR     (default ../circuits, resolved relative to this file)
-//   WITNESS_WORK_DIR (default /tmp/zkx-snap)
+//   WITNESS_WORK_DIR (default /tmp/zkx-live)
 
 import express from 'express';
 import { spawn } from 'node:child_process';
@@ -39,7 +39,7 @@ import { buildInput as buildBounty } from './bounty/builder.js';
 const HERE = dirname(fileURLToPath(import.meta.url));
 const PORT = Number(process.env.WITNESS_PORT ?? 7001);
 const CIRCUITS_DIR = resolve(process.env.CIRCUITS_DIR ?? join(HERE, '..', 'circuits'));
-const WORK_DIR = process.env.WITNESS_WORK_DIR ?? '/tmp/zkx-snap';
+const WORK_DIR = process.env.WITNESS_WORK_DIR ?? '/tmp/zkx-live';
 
 const BIN = {
     intent: join(CIRCUITS_DIR, 'build', 'intent_cpp', 'intent'),

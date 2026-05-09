@@ -43,7 +43,7 @@ Env vars:
 | ------------------ | -------------------------------- | ---------------------------------------- |
 | `WITNESS_PORT`     | `7001`                           | Listen port                              |
 | `CIRCUITS_DIR`     | `../circuits` (rel. to this dir) | Where to find `build/<circuit>_cpp/`     |
-| `WITNESS_WORK_DIR` | `/tmp/zkx-snap`                  | Where to drop input.json + .wtns files   |
+| `WITNESS_WORK_DIR` | `/tmp/zkx-live`                  | Where to drop input.json + .wtns files   |
 
 ---
 
@@ -105,8 +105,8 @@ Response:
 
 ```json
 {
-  "wtns_path":  "/tmp/zkx-snap/intent_<uuid>.wtns",
-  "input_path": "/tmp/zkx-snap/intent_<uuid>.input.json",
+  "wtns_path":  "/tmp/zkx-live/intent_<uuid>.wtns",
+  "input_path": "/tmp/zkx-live/intent_<uuid>.input.json",
   "public_inputs": {
     "intent_root_pub": "...",
     "recipient":       ["...", "..."],
@@ -124,7 +124,7 @@ Response:
 The caller passes `wtns_path` to the prover service:
 
 ```bash
-curl -s :8000/prove -d '{"witness_path":"/tmp/zkx-snap/intent_xxx.wtns"}'
+curl -s :8000/prove -d '{"witness_path":"/tmp/zkx-live/intent_xxx.wtns"}'
 ```
 
 ### `POST /bounty`
@@ -192,7 +192,7 @@ in `public_inputs` (the BabyJubjub pubkey of the signing attestor).
    └─ return {input, public_inputs}
             │
             ▼
-   write input.json → /tmp/zkx-snap/<id>.input.json
+   write input.json → /tmp/zkx-live/<id>.input.json
             │
             ▼
    spawn circuits/build/<circuit>_cpp/<circuit>  input.json  wtns_path

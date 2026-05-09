@@ -85,7 +85,7 @@ export function ClaimDemo() {
     useEffect(() => {
         let cancelled = false;
         const refresh = () => {
-            fetch('https://api.github.com/repos/fractalyze/zkx-snap', { cache: 'no-store' })
+            fetch('https://api.github.com/repos/fractalyze/zkx-live', { cache: 'no-store' })
                 .then(r => r.ok ? r.json() : null)
                 .then(d => {
                     if (cancelled || !d) return;
@@ -142,6 +142,38 @@ export function ClaimDemo() {
         setResult(undefined);
         setError(undefined);
         setSteps(INITIAL_STEPS);
+    }, []);
+
+    // OAuth in a popup so the underlying page never navigates away.
+    // The callback page (apps/bounty) postMessage's back to us when done.
+    const openSignInPopup = useCallback(() => {
+        const w = 600;
+        const h = 700;
+        const left = window.screenX + (window.outerWidth - w) / 2;
+        const top  = window.screenY + (window.outerHeight - h) / 2;
+        window.open(
+            '/api/auth/login',
+            'zkx-oauth',
+            `width=${w},height=${h},left=${left},top=${top},popup=yes`,
+        );
+    }, []);
+
+    // Listen for the popup's "auth complete" message. Refetch /api/auth/me
+    // so the UI flips to signed-in without any page navigation.
+    useEffect(() => {
+        function onMessage(e: MessageEvent) {
+            if (!e.data || typeof e.data !== 'object') return;
+            if ((e.data as { type?: string }).type !== 'zkx-auth-complete') return;
+            // Refresh auth state in place.
+            fetch('/api/auth/me')
+                .then(r => r.json())
+                .then(d => {
+                    if (d.logged_in) setAuth({ status: 'in', login: d.login, id: d.id });
+                })
+                .catch(() => {});
+        }
+        window.addEventListener('message', onMessage);
+        return () => window.removeEventListener('message', onMessage);
     }, []);
 
     const start = useCallback(async (input: { recipient: string }) => {
@@ -228,6 +260,9 @@ export function ClaimDemo() {
         start({ recipient: recipient.trim() });
     }
 
+    const completedSteps = STEPS.filter(({ key }) => steps[key].state === 'done').length;
+    const runningStep = STEPS.find(({ key }) => steps[key].state === 'running')?.label;
+
     return (
         <div className="overflow-hidden rounded-md border-2 border-accent/60 bg-page shadow-sm">
             <div className="flex items-center justify-between border-b border-accent/30 bg-accentSoft px-5 py-2.5 text-xs">
@@ -244,6 +279,14 @@ export function ClaimDemo() {
                     off-chain attestation. AI-agent payouts, verified on-chain.
                 </p>
 
+                <LiveSignalStrip
+                    running={running}
+                    completedSteps={completedSteps}
+                    runningStep={runningStep}
+                    hasResult={Boolean(result)}
+                    hasError={Boolean(error)}
+                />
+
                 <FlowDiagram />
 
                 <RepoBadge stars={stars} />
@@ -256,6 +299,7 @@ export function ClaimDemo() {
                     onSubmit={handleSubmit}
                     onReset={reset}
                     onSignOut={handleSignOut}
+                    openSignInPopup={openSignInPopup}
                     settled={Boolean(result || error)}
                     starred={starred}
                     stars={stars}
@@ -274,6 +318,49 @@ export function ClaimDemo() {
 
                 {result && <ResultBlock result={result} />}
                 {error && <ErrorBlock error={error} />}
+            </div>
+        </div>
+    );
+}
+
+function LiveSignalStrip({
+    running,
+    completedSteps,
+    runningStep,
+    hasResult,
+    hasError,
+}: {
+    running: boolean;
+    completedSteps: number;
+    runningStep?: string;
+    hasResult: boolean;
+    hasError: boolean;
+}) {
+    const status = hasError
+        ? 'failed'
+        : hasResult
+          ? 'settled'
+          : running
+            ? 'running'
+            : 'idle';
+
+    return (
+        <div className="mt-4 rounded border border-rule bg-surface px-4 py-3">
+            <div className="flex flex-wrap items-center gap-2 font-mono text-[11px] uppercase tracking-[0.1em]">
+                <span className="text-faint">real-time signal</span>
+                <span className={
+                    status === 'running'
+                        ? 'rounded border border-accent/40 bg-accentSoft px-2 py-0.5 text-accent'
+                        : status === 'settled'
+                          ? 'rounded border border-ok/40 bg-ok/[0.06] px-2 py-0.5 text-ok'
+                          : status === 'failed'
+                            ? 'rounded border border-err/40 bg-err/[0.06] px-2 py-0.5 text-err'
+                            : 'rounded border border-rule px-2 py-0.5 text-muted'
+                }>
+                    {status}
+                </span>
+                <span className="text-muted">{completedSteps}/{STEPS.length} complete</span>
+                {runningStep && <span className="text-accent">now: {runningStep}</span>}
             </div>
         </div>
     );
@@ -507,10 +594,10 @@ function formatElapsed(ms: number): string {
     return `${(ms / 1000).toFixed(2)} s`;
 }
 
-function RepoBadge({ stars: _stars }: { stars: number | null }) {
+function RepoBadge({ stars }: { stars: number | null }) {
     return (
         <a
-            href="https://github.com/fractalyze/zkx-snap"
+            href="https://github.com/fractalyze/zkx-live"
             target="_blank"
             rel="noreferrer"
             className="mt-5 flex items-center justify-between rounded border border-rule bg-surface px-4 py-3 font-mono text-sm transition-colors hover:border-accent/60"
@@ -519,15 +606,26 @@ function RepoBadge({ stars: _stars }: { stars: number | null }) {
                 <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor" className="text-ink2">
                     <path d="M8 0a8 8 0 0 0-2.53 15.59c.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0 0 16 8a8 8 0 0 0-8-8z" />
                 </svg>
-                <span className="text-ink">fractalyze/zkx-snap</span>
+                <span className="text-ink">fractalyze/zkx-live</span>
             </span>
-            <span className="font-mono text-xs text-faint">view on github ↗</span>
+            {/* Live star count — visible regardless of auth state. The
+                GitHub /repos/{owner}/{repo} endpoint is public so the
+                fetch in the parent runs without a token. */}
+            <span className="flex items-center gap-1.5 text-ink2">
+                <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor" className="text-amber-500">
+                    <path d="M8 .25a.75.75 0 0 1 .673.418l1.882 3.815 4.21.612a.75.75 0 0 1 .416 1.279l-3.046 2.97.719 4.192a.75.75 0 0 1-1.088.791L8 12.347l-3.766 1.98a.75.75 0 0 1-1.088-.79l.72-4.194L.818 6.374a.75.75 0 0 1 .416-1.28l4.21-.61L7.327.668A.75.75 0 0 1 8 .25z" />
+                </svg>
+                <span className="tabular tabular-nums text-ink">
+                    {stars === null ? '—' : stars.toLocaleString()}
+                </span>
+                <span className="text-faint">stars</span>
+            </span>
         </a>
     );
 }
 
 function ClaimCta({
-    auth, recipient, setRecipient, running, onSubmit, onReset, onSignOut,
+    auth, recipient, setRecipient, running, onSubmit, onReset, onSignOut, openSignInPopup,
     settled, starred, stars,
 }: {
     auth: AuthState;
@@ -537,6 +635,7 @@ function ClaimCta({
     onSubmit: (e: FormEvent) => void;
     onReset: () => void;
     onSignOut: () => void;
+    openSignInPopup: () => void;
     settled: boolean;
     starred: boolean | null;
     stars: number | null;
@@ -566,15 +665,16 @@ function ClaimCta({
 
     if (auth.status === 'out') {
         return (
-            <a
-                href="/api/auth/login"
+            <button
+                type="button"
+                onClick={openSignInPopup}
                 className="mt-3 flex w-full items-center justify-center gap-3 rounded-md bg-ink px-6 py-4 text-base font-semibold text-page transition hover:opacity-90"
             >
                 <svg width="20" height="20" viewBox="0 0 16 16" fill="currentColor" aria-hidden>
                     <path d="M8 0a8 8 0 0 0-2.53 15.59c.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0 0 16 8a8 8 0 0 0-8-8z" />
                 </svg>
                 Sign in with GitHub to claim 0.01 SOL
-            </a>
+            </button>
         );
     }
 

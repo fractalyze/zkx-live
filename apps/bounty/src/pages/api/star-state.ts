@@ -8,7 +8,7 @@
 import type { NextApiRequest, NextApiResponse } from 'next';
 import { getSession } from '@/lib/session';
 
-const REPO = process.env.GITHUB_REPO || 'fractalyze/zkx-snap';
+const REPO = process.env.GITHUB_REPO || 'fractalyze/zkx-live';
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
     // Tell client (and intermediate caches) not to cache star state — it
@@ -25,7 +25,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
             headers: {
                 Authorization: `Bearer ${session.access_token}`,
                 Accept: 'application/vnd.github+json',
-                'User-Agent': 'zkx-snap-bounty',
+                'User-Agent': 'zkx-live-bounty',
             },
             cache: 'no-store',
         });

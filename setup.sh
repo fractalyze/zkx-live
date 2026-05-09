@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# zkx-snap one-time environment setup.
+# zkx-live one-time environment setup.
 #
 # Brings a fresh clone all the way to "ready to start the witness service +
 # prover service": clones circom dependency libs, downloads ptau, installs
@@ -14,7 +14,7 @@ set -euo pipefail
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 cd "$ROOT"
 
-echo "[setup] zkx-snap one-time setup"
+echo "[setup] zkx-live one-time setup"
 echo "[setup] root = $ROOT"
 
 # -----------------------------------------------------------------------------
@@ -79,7 +79,7 @@ build_circuit() {
         ./node_modules/.bin/snarkjs groth16 setup \
             "build/$c.r1cs" "ptau/pot15_hez.ptau" "build/${c}_0000.zkey" 2>&1 | tail -1
         ./node_modules/.bin/snarkjs zkey contribute \
-            "build/${c}_0000.zkey" "build/${c}_final.zkey" -e='zkx-snap-setup' 2>&1 | tail -1
+            "build/${c}_0000.zkey" "build/${c}_final.zkey" -e='zkx-live-setup' 2>&1 | tail -1
         ./node_modules/.bin/snarkjs zkey export verificationkey \
             "build/${c}_final.zkey" "build/${c}_vk.json" 2>&1 | tail -1
         rm "build/${c}_0000.zkey"

@@ -12,6 +12,120 @@
 
 :root {
     color-scheme: light;
+
+    --c-page: 255 255 255;
+    --c-surface: 250 250 250;
+    --c-rule: 229 231 235;
+    --c-rule-strong: 203 213 225;
+    --c-ink: 11 15 23;
+    --c-ink2: 31 41 55;
+    --c-muted: 91 100 115;
+    --c-faint: 138 147 163;
+    --c-accent: 31 95 168;
+    --c-accent-soft: 234 241 251;
+    --c-ok: 10 125 58;
+    --c-warn: 163 90 0;
+    --c-err: 180 35 24;
+}
+
+:root[data-theme='dark-graphite'] {
+    color-scheme: dark;
+    --c-page: 12 14 18;
+    --c-surface: 20 24 32;
+    --c-rule: 50 57 72;
+    --c-rule-strong: 75 85 103;
+    --c-ink: 236 240 246;
+    --c-ink2: 197 206 220;
+    --c-muted: 152 165 186;
+    --c-faint: 126 140 162;
+    --c-accent: 94 180 255;
+    --c-accent-soft: 31 49 76;
+    --c-ok: 52 211 153;
+    --c-warn: 251 191 36;
+    --c-err: 248 113 113;
+}
+
+:root[data-theme='warm-paper'] {
+    --c-page: 253 250 242;
+    --c-surface: 249 244 232;
+    --c-rule: 226 214 195;
+    --c-rule-strong: 201 182 151;
+    --c-ink: 39 32 27;
+    --c-ink2: 76 61 49;
+    --c-muted: 117 96 82;
+    --c-faint: 153 129 111;
+    --c-accent: 180 83 9;
+    --c-accent-soft: 255 237 213;
+    --c-ok: 22 163 74;
+    --c-warn: 217 119 6;
+    --c-err: 190 24 93;
+}
+
+:root[data-theme='neon-night'] {
+    color-scheme: dark;
+    --c-page: 4 8 15;
+    --c-surface: 12 19 32;
+    --c-rule: 29 45 72;
+    --c-rule-strong: 56 76 112;
+    --c-ink: 225 248 255;
+    --c-ink2: 166 218 244;
+    --c-muted: 127 167 197;
+    --c-faint: 95 132 163;
+    --c-accent: 0 229 255;
+    --c-accent-soft: 21 45 77;
+    --c-ok: 52 211 153;
+    --c-warn: 250 204 21;
+    --c-err: 251 113 133;
+}
+
+:root[data-theme='mono-minimal'] {
+    --c-page: 250 250 250;
+    --c-surface: 243 244 246;
+    --c-rule: 209 213 219;
+    --c-rule-strong: 156 163 175;
+    --c-ink: 17 24 39;
+    --c-ink2: 55 65 81;
+    --c-muted: 75 85 99;
+    --c-faint: 107 114 128;
+    --c-accent: 17 24 39;
+    --c-accent-soft: 229 231 235;
+    --c-ok: 55 65 81;
+    --c-warn: 82 82 91;
+    --c-err: 63 63 70;
+}
+
+:root[data-theme='pulse-benchmark'] {
+    color-scheme: dark;
+    --c-page: 6 11 20;
+    --c-surface: 17 26 46;
+    --c-rule: 35 49 79;
+    --c-rule-strong: 75 95 135;
+    --c-ink: 232 240 255;
+    --c-ink2: 182 199 231;
+    --c-muted: 136 157 196;
+    --c-faint: 105 125 164;
+    --c-accent: 34 211 238;
+    --c-accent-soft: 23 41 71;
+    --c-ok: 0 232 135;
+    --c-warn: 245 185 66;
+    --c-err: 255 92 122;
+}
+
+:root[data-theme='light-contrast-premium'] {
+    color-scheme: light;
+    --c-page: 255 255 255;
+    --c-surface: 246 248 251;
+    --c-rule: 199 210 223;
+    --c-rule-strong: 148 163 184;
+    --c-ink: 7 12 20;
+    --c-ink2: 28 39 56;
+    --c-muted: 63 78 99;
+    --c-faint: 96 112 133;
+    --c-accent: 10 78 167;
+    --c-accent-soft: 230 240 255;
+    --c-ok: 6 122 70;
+    --c-warn: 180 95 0;
+    --c-err: 176 33 39;
 }
 
 html, body {

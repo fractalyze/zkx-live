@@ -1,7 +1,7 @@
 {
-  "name": "zkx-snap-circuits",
+  "name": "zkx-live-circuits",
   "version": "0.0.1",
-  "description": "Circom circuits for zkx-snap — Groth16 BN254",
+  "description": "Circom circuits for zkx-live — Groth16 BN254",
   "private": true,
   "type": "module",
   "scripts": {

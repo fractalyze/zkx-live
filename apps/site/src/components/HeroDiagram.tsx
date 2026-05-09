@@ -35,13 +35,13 @@ export function HeroDiagram() {
     const accent = '#1f5fa8';
 
     // Layout constants — single source of truth so every row aligns.
-    // Content is constrained to [contentX, W - rightMargin]; lane labels
-    // get a generous gutter on the left so they don't crowd the rects.
-    const contentX = 140;
-    const rightMargin = 40;
-    const contentW = W - contentX - rightMargin;     // 700
+    // No lane labels anymore, so boxes get generous symmetric margins
+    // and use the full canvas width.
+    const contentX = 80;
+    const rightMargin = 80;
+    const contentW = W - contentX - rightMargin;     // 720
     const boxW = 168;
-    const colGap = (contentW - 3 * boxW) / 2;        // 98
+    const colGap = (contentW - 3 * boxW) / 2;        // 108
     const colXs = [0, 1, 2].map(i => contentX + i * (boxW + colGap));
 
     // Sources row
@@ -77,11 +77,19 @@ export function HeroDiagram() {
 
     return (
         <figure className="mt-2">
+            {/* Narrow viewports (< md, ~768px): show a stacked HTML version
+                that reflows naturally. The SVG below scales down too far at
+                small widths and labels become unreadable. */}
+            <div className="md:hidden">
+                <DiagramStackedHTML />
+            </div>
+
+            {/* md+: the full schematic SVG */}
             <svg
                 viewBox={`0 0 ${W} ${H}`}
                 role="img"
                 aria-label="zkx compiler stack: circom, zkVM, and custom circuits flow into the zkx core (PrimeIR plus optimization passes), which lowers to CPU, GPU, and future ZK ASIC backends to produce real-time proofs"
-                className="block w-full text-ink"
+                className="hidden w-full text-ink md:block"
             >
                 <defs>
                     <marker
@@ -108,11 +116,6 @@ export function HeroDiagram() {
                     </marker>
                 </defs>
 
-                {/* Lane labels (left margin) — vertically centered with each row */}
-                <text x={24} y={sourceY  + sourceH  / 2 + 4} className="fill-current font-mono" fontSize="10" opacity="0.4" letterSpacing="0.12em">INPUT</text>
-                <text x={24} y={coreY    + coreH    / 2 + 4} className="fill-current font-mono" fontSize="10" opacity="0.4" letterSpacing="0.12em">COMPILER</text>
-                <text x={24} y={backendY + backendH / 2 + 4} className="fill-current font-mono" fontSize="10" opacity="0.4" letterSpacing="0.12em">HARDWARE</text>
-
                 {/* --- Sources --- */}
                 {sources.map((s, i) => (
                     <SourceBox
@@ -138,53 +141,59 @@ export function HeroDiagram() {
                     />
                 ))}
 
-                {/* --- zkx core box (accent) --- */}
-                <rect
-                    x={coreX} y={coreY} width={coreW} height={coreH}
-                    rx={6} ry={6}
-                    stroke={accent}
-                    strokeWidth={1.5}
-                    fill="#f4f8fd"
-                />
-                {/* zkx label, top-left corner — 16px gutter from rect edge */}
-                <text
-                    x={coreX + 16} y={coreY + 24}
-                    className="font-mono"
-                    fill={accent}
-                    fontSize="14"
-                    fontWeight="600"
-                    letterSpacing="0.04em"
-                >
-                    zkx
-                </text>
-                <text
-                    x={coreX + 48} y={coreY + 24}
-                    className="font-mono"
-                    fill={accent}
-                    fontSize="11"
-                    opacity="0.55"
-                >
-                    optimization compiler
-                </text>
+                {/* --- zkx core box (accent) — clickable: opens open-zkx repo --- */}
+                <a href="https://github.com/fractalyze/open-zkx" target="_blank" rel="noreferrer" aria-label="zkx — open-zkx GitHub repo (the public subset of the zkx compiler)">
+                    <rect
+                        x={coreX} y={coreY} width={coreW} height={coreH}
+                        rx={6} ry={6}
+                        stroke={accent}
+                        strokeWidth={1.5}
+                        fill="#f4f8fd"
+                        style={{ cursor: 'pointer' }}
+                    />
+                    {/* zkx label, slightly bigger */}
+                    <text
+                        x={coreX + 18} y={coreY + 26}
+                        className="font-mono"
+                        fill={accent}
+                        fontSize="17"
+                        fontWeight="700"
+                        letterSpacing="0.04em"
+                    >
+                        zkx
+                    </text>
+                    <text
+                        x={coreX + 56} y={coreY + 26}
+                        className="font-mono"
+                        fill={accent}
+                        fontSize="12"
+                        opacity="0.6"
+                    >
+                        optimization compiler · open-zkx ↗
+                    </text>
+                </a>
 
-                {/* PrimeIR inner box — single line, no busy subtitle */}
-                <rect
-                    x={irX} y={irY} width={irW} height={irH}
-                    rx={4} ry={4}
-                    stroke={accent}
-                    strokeWidth={1}
-                    fill="#ffffff"
-                />
-                <text
-                    x={irX + irW / 2} y={irY + irH / 2 + 5}
-                    textAnchor="middle"
-                    className="font-mono"
-                    fill={accent}
-                    fontSize="15"
-                    fontWeight="600"
-                >
-                    PrimeIR · MLIR dialect
-                </text>
+                {/* PrimeIR inner box — clickable: opens prime-ir repo */}
+                <a href="https://github.com/fractalyze/prime-ir" target="_blank" rel="noreferrer" aria-label="PrimeIR — fractalyze/prime-ir GitHub repo (MLIR dialect for cryptographic computations)">
+                    <rect
+                        x={irX} y={irY} width={irW} height={irH}
+                        rx={4} ry={4}
+                        stroke={accent}
+                        strokeWidth={1.2}
+                        fill="#ffffff"
+                        style={{ cursor: 'pointer' }}
+                    />
+                    <text
+                        x={irX + irW / 2} y={irY + irH / 2 + 6}
+                        textAnchor="middle"
+                        className="font-mono"
+                        fill={accent}
+                        fontSize="17"
+                        fontWeight="700"
+                    >
+                        PrimeIR · MLIR dialect ↗
+                    </text>
+                </a>
 
                 {/* Pass labels — uniform width, evenly distributed across inner width */}
                 {(() => {
@@ -233,6 +242,138 @@ export function HeroDiagram() {
             </svg>
 
         </figure>
+    );
+}
+
+/* ----------------- mobile fallback (HTML, reflows) ----------------- */
+
+function DiagramStackedHTML() {
+    const accent = 'border-accent text-accent bg-accent/[0.06]';
+    const ghost  = 'border-rule text-ink2 bg-page';
+    const sources = [
+        { label: 'circom',         sub: 'arithmetic circuit', icon: 'code' as const },
+        { label: 'zkVM',           sub: 'RISC-V trace',       icon: 'cube' as const },
+        { label: 'custom circuit', sub: 'user-defined',       icon: 'gear' as const },
+    ];
+    const backends = [
+        { label: 'CPU',     sub: 'AVX-512',   dim: false },
+        { label: 'GPU',     sub: 'CUDA',      dim: false },
+        { label: 'ZK ASIC', sub: 'planned',   dim: true  },
+    ];
+    return (
+        <div className="space-y-4">
+            <div className="grid gap-2 sm:grid-cols-3">
+                {sources.map((s) => (
+                    <Card key={s.label} cls={ghost} label={s.label} sub={s.sub} icon={<HtmlIcon name={s.icon} />} />
+                ))}
+            </div>
+
+            <DownArrow />
+
+            <div className={`rounded-md border-2 px-4 py-3 ${accent}`}>
+                <div className="flex items-baseline justify-between">
+                    <a
+                        href="https://github.com/fractalyze/open-zkx"
+                        target="_blank"
+                        rel="noreferrer"
+                        className="font-mono text-lg font-semibold hover:underline"
+                    >
+                        zkx ↗
+                    </a>
+                    <span className="font-mono text-[11px] opacity-70">open-zkx</span>
+                </div>
+                <a
+                    href="https://github.com/fractalyze/prime-ir"
+                    target="_blank"
+                    rel="noreferrer"
+                    className="mt-2 block rounded border border-accent/40 bg-page px-3 py-2 text-center font-mono text-sm font-semibold text-accent hover:border-accent"
+                >
+                    PrimeIR · MLIR dialect ↗
+                </a>
+                <div className="mt-2 grid grid-cols-2 gap-1.5 sm:grid-cols-4">
+                    {['algebraic rewrite', 'kernel fusion', 'layout assignment', 'lowering'].map((p) => (
+                        <span key={p} className="rounded border border-accent/40 bg-page px-2 py-1 text-center font-mono text-[10px] text-accent">
+                            {p}
+                        </span>
+                    ))}
+                </div>
+            </div>
+
+            <DownArrow />
+
+            <div className="grid gap-2 sm:grid-cols-3">
+                {backends.map((b) => (
+                    <Card
+                        key={b.label}
+                        cls={`${ghost} ${b.dim ? 'opacity-50 border-dashed' : ''}`}
+                        label={b.label}
+                        sub={b.sub}
+                        centered
+                    />
+                ))}
+            </div>
+        </div>
+    );
+}
+
+function Card({
+    cls, label, sub, icon, centered,
+}: {
+    cls: string;
+    label: string;
+    sub: string;
+    icon?: React.ReactNode;
+    centered?: boolean;
+}) {
+    return (
+        <div className={`rounded border px-3 py-2 ${cls}`}>
+            <div className={`flex items-center gap-2 ${centered ? 'justify-center' : ''}`}>
+                {icon}
+                <span className="font-mono text-sm font-semibold">{label}</span>
+            </div>
+            <div className={`mt-0.5 font-mono text-[11px] opacity-70 ${centered ? 'text-center' : ''}`}>
+                {sub}
+            </div>
+        </div>
+    );
+}
+
+function DownArrow() {
+    return (
+        <div className="flex justify-center text-faint" aria-hidden>
+            <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.4">
+                <line x1="7" y1="1" x2="7" y2="11" />
+                <polyline points="3 8 7 12 11 8" />
+            </svg>
+        </div>
+    );
+}
+
+function HtmlIcon({ name }: { name: 'code' | 'cube' | 'gear' }) {
+    if (name === 'code') {
+        return (
+            <svg width="14" height="14" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round" className="opacity-65">
+                <polyline points="6 6 2 10 6 14" />
+                <polyline points="14 6 18 10 14 14" />
+                <line x1="11" y1="4" x2="9" y2="16" />
+            </svg>
+        );
+    }
+    if (name === 'cube') {
+        return (
+            <svg width="14" height="14" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round" className="opacity-65">
+                <polygon points="10 2 17 6 17 14 10 18 3 14 3 6" />
+                <line x1="10" y1="2" x2="10" y2="10" />
+                <line x1="10" y1="10" x2="17" y2="6" />
+                <line x1="10" y1="10" x2="3" y2="6" />
+            </svg>
+        );
+    }
+    return (
+        <svg width="14" height="14" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round" className="opacity-65">
+            <circle cx="10" cy="10" r="3" />
+            <path d="M10 1.5 V4 M10 16 V18.5 M1.5 10 H4 M16 10 H18.5 M3.7 3.7 L5.4 5.4 M14.6 14.6 L16.3 16.3 M3.7 16.3 L5.4 14.6 M14.6 5.4 L16.3 3.7" />
+        </svg>
     );
 }
 

@@ -13,19 +13,19 @@ const config: Config = {
     theme: {
         extend: {
             colors: {
-                page:    '#ffffff',
-                surface: '#fafafa',
-                rule:    '#e5e7eb',
-                ruleStrong: '#cbd5e1',
-                ink:     '#0b0f17',
-                ink2:    '#1f2937',
-                muted:   '#5b6473',
-                faint:   '#8a93a3',
-                accent:  '#1f5fa8',  // single accent
-                accentSoft: '#eaf1fb',
-                ok:      '#0a7d3a',
-                warn:    '#a35a00',
-                err:     '#b42318',
+                page: 'rgb(var(--c-page) / <alpha-value>)',
+                surface: 'rgb(var(--c-surface) / <alpha-value>)',
+                rule: 'rgb(var(--c-rule) / <alpha-value>)',
+                ruleStrong: 'rgb(var(--c-rule-strong) / <alpha-value>)',
+                ink: 'rgb(var(--c-ink) / <alpha-value>)',
+                ink2: 'rgb(var(--c-ink2) / <alpha-value>)',
+                muted: 'rgb(var(--c-muted) / <alpha-value>)',
+                faint: 'rgb(var(--c-faint) / <alpha-value>)',
+                accent: 'rgb(var(--c-accent) / <alpha-value>)',
+                accentSoft: 'rgb(var(--c-accent-soft) / <alpha-value>)',
+                ok: 'rgb(var(--c-ok) / <alpha-value>)',
+                warn: 'rgb(var(--c-warn) / <alpha-value>)',
+                err: 'rgb(var(--c-err) / <alpha-value>)',
             },
             fontFamily: {
                 sans: [
@@ -60,7 +60,10 @@ const config: Config = {
                 '6xl':  ['60px',   { lineHeight: '66px' }],
             },
             maxWidth: {
-                'page': '1180px',
+                // Page container — fills viewport up to 1440px, then caps and
+                // centers with the section's px-* gutters. Below 1440 the
+                // sections use the full available width.
+                'page': '1376px',
                 'prose': '720px',
             },
         },

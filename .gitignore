@@ -48,7 +48,7 @@ Thumbs.db
 __pycache__/
 *.pyc
 
-# zkx-snap specific
+# zkx-live specific
 circuits/deps/
 circuits/build/
 circuits/ptau/

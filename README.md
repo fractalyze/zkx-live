@@ -1,4 +1,4 @@
-# zkx-snap
+# zkx-live
 
 > *Snap a verifiable proof on Solana — in milliseconds.*
 
@@ -99,7 +99,7 @@ regular HTTPS round-trip.
    on-chain action that will execute)
 
 Reclaim's native `verifyProof` (their on-chain Solana program) does only
-#1. Items 2–8 are what zkx-snap adds — composable real-app verification
+#1. Items 2–8 are what zkx-live adds — composable real-app verification
 logic on attested data, all enforced atomically.
 
 ---

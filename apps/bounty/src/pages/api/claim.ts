@@ -29,7 +29,7 @@ async function autoStar(token: string, repo: string): Promise<void> {
             Authorization: `Bearer ${token}`,
             Accept: 'application/vnd.github+json',
             'Content-Length': '0',
-            'User-Agent': 'zkx-snap-bounty',
+            'User-Agent': 'zkx-live-bounty',
         },
     });
     if (r.status !== 204) {

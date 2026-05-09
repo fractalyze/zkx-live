@@ -1,9 +1,9 @@
 {
-  "name": "zkx-snap-witness",
+  "name": "zkx-live-witness",
   "version": "0.1.0",
   "private": true,
   "type": "module",
-  "description": "HTTP service: input fixture + witness gen for zkx-snap circuits.",
+  "description": "HTTP service: input fixture + witness gen for zkx-live circuits.",
   "scripts": {
     "start": "node app.js",
     "test": "node --test lib/util.test.js intent/builder.test.js bounty/builder.test.js e2e/e2e.test.js"

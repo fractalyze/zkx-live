@@ -116,7 +116,7 @@ In one local terminal:
 ```bash
 ssh zkx
 # (now in remote shell)
-cd ~/Workspace/zkx-snap
+cd ~/Workspace/zkx-live
 ( cd witness && node app.js )                  # :7001 on the server
 ( cd prover  && python app.py )                # :9090 on the server (another tab)
 ( cd apps/bounty && npm run dev )              # :3000 on the server
