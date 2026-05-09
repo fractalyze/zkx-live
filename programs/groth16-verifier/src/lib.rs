@@ -1,4 +1,4 @@
-// verifier-groth16-bn254 — generic BN254 Groth16 verifier for the V3 gateway
+// groth16-verifier — generic BN254 Groth16 verifier for the V3 gateway
 // architecture. Wraps Light Protocol's `groth16-solana` and exposes a single
 // CPI-callable `verify(config, proof, public_inputs)` entry point.
 //
@@ -27,7 +27,7 @@ pub struct VerifyOutcome {
 }
 
 #[program]
-pub mod verifier_groth16_bn254 {
+pub mod groth16_verifier {
     use super::*;
 
     /// Initialize an empty VK PDA seeded by `config` (= sha256(canonical VK bytes)).

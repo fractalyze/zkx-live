@@ -98,8 +98,8 @@ build_circuit bounty
 # -----------------------------------------------------------------------------
 mkdir -p target/deploy
 cp -n programs/gateway/keypair.json target/deploy/gateway-keypair.json 2>/dev/null || true
-cp -n programs/verifier-groth16-bn254/keypair.json \
-      target/deploy/verifier_groth16_bn254-keypair.json 2>/dev/null || true
+cp -n programs/groth16-verifier/keypair.json \
+      target/deploy/groth16_verifier-keypair.json 2>/dev/null || true
 
 # -----------------------------------------------------------------------------
 # 6. Prover service deps — pip-installable bits only.
@@ -117,7 +117,7 @@ echo "[setup] done"
 echo
 echo "Next steps:"
 echo "  1. Build Solana programs:"
-echo "       cargo-build-sbf --manifest-path programs/verifier-groth16-bn254/Cargo.toml"
+echo "       cargo-build-sbf --manifest-path programs/groth16-verifier/Cargo.toml"
 echo "       cargo-build-sbf --manifest-path programs/gateway/Cargo.toml"
 echo
 echo "  2. Start the witness service (Node, :7001):"

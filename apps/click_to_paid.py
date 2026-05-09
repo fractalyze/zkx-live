@@ -113,8 +113,8 @@ def main():
         payer = lib.load_payer()
         lib.airdrop(client, payer.pubkey(), sol=200)
         lib.deploy_program(
-            REPO / "target/deploy/verifier_groth16_bn254.so",
-            REPO / "target/deploy/verifier_groth16_bn254-keypair.json",
+            REPO / "target/deploy/groth16_verifier.so",
+            REPO / "target/deploy/groth16_verifier-keypair.json",
         )
         lib.deploy_program(
             REPO / "target/deploy/gateway.so",

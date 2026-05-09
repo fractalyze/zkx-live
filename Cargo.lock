@@ -953,7 +953,7 @@ version = "0.1.0"
 dependencies = [
  "anchor-lang",
  "bytemuck",
- "verifier-groth16-bn254",
+ "groth16-verifier",
 ]
 
 [[package]]
@@ -1003,6 +1003,14 @@ dependencies = [
  "num-bigint",
  "solana-bn254",
  "thiserror 1.0.69",
+]
+
+[[package]]
+name = "groth16-verifier"
+version = "0.1.0"
+dependencies = [
+ "anchor-lang",
+ "groth16-solana",
 ]
 
 [[package]]
@@ -2481,14 +2489,6 @@ name = "unicode-segmentation"
 version = "1.13.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "9629274872b2bfaf8d66f5f15725007f635594914870f65218920345aa11aa8c"
-
-[[package]]
-name = "verifier-groth16-bn254"
-version = "0.1.0"
-dependencies = [
- "anchor-lang",
- "groth16-solana",
-]
 
 [[package]]
 name = "version_check"

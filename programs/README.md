@@ -5,7 +5,7 @@ Two Anchor programs, deployed to **devnet**:
 | Program | Address (devnet) | Role |
 | --- | --- | --- |
 | `gateway` | `3FYPieR6NZiQYGUx9TNeXGWwaV6ntD6ig2hu9jLi69ZQ` | Verify-and-execute. Accepts a proof + public inputs, CPIs to the verifier, enforces nullifier policy, then atomically executes the bound action (e.g. SOL transfer). |
-| `verifier-groth16-bn254` | `Hy878UwGsJpw62Kxio3ySbDXQoy21dR8JgmFrEv338qj` | BN254 Groth16 verifier. Light Protocol's verifier wrapped behind a tiny CPI ABI so the gateway can call it with arbitrary VKs. |
+| `groth16-verifier` | `Hy878UwGsJpw62Kxio3ySbDXQoy21dR8JgmFrEv338qj` | BN254 Groth16 verifier. Light Protocol's verifier wrapped behind a tiny CPI ABI so the gateway can call it with arbitrary VKs. |
 
 ## Why split
 
@@ -32,7 +32,7 @@ a fresh SALT to get the full account suite.
 ## Build + deploy
 
 ```bash
-cargo-build-sbf --manifest-path programs/verifier-groth16-bn254/Cargo.toml
+cargo-build-sbf --manifest-path programs/groth16-verifier/Cargo.toml
 cargo-build-sbf --manifest-path programs/gateway/Cargo.toml
 solana program deploy --program-id programs/gateway/keypair.json \
     target/deploy/gateway.so --url devnet

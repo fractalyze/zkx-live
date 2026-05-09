@@ -2,329 +2,109 @@
 
 > *Snap a verifiable proof on Solana — in milliseconds.*
 
-**Real-time ZK proofs on Solana, accelerated by zkX.**
-
-Vanilla Groth16 provers (snarkjs) take seconds to tens of seconds for
-real-world composed-verification circuits. That's the long pole between
-"user clicks" and "on-chain action lands". zkX cuts the prove step to
-**~140 ms warm steady state** — fast enough to hide behind ordinary
-HTTPS roundtrips.
+A real-time ZK payment-gateway demo on Solana, accelerated by **zkX**.
+Vanilla Groth16 provers (snarkjs) take seconds for real-world
+composed-verification circuits; zkX cuts the prove step to ~140 ms
+warm steady-state — fast enough to hide behind ordinary HTTPS
+roundtrips.
 
 ---
 
-## Two demos, two purposes
+## ⚠️ About the prover
 
-These aren't versions of the same thing — they're **different use cases
-sharing the same infrastructure** (gateway program, Groth16 verifier,
-zkX prover service). The verifier-registry pattern lets us plug each
-into the same on-chain stack with no code change, only a new VK.
+**The zkX prover itself is closed source** and not in this repo.
 
-### 1. `intent` — intent-bound payment
+What you'll find here is the *consumer* side — circuits, on-chain
+programs, witness service, claim orchestration, and the demo UI.
+This stack treats the prover as an opaque HTTP service:
 
-> *ERC-8150-style intent-bound payment primitive on Solana, enforced by ZK.*
+```
+POST :9090/<circuit>  body: {"witness_b64": "..."}
+                      resp: {proof, public_signals, timing_ms}
+```
 
-Owner signs an intent bundle (recipient allowlist Merkle root, amount
-cap, max-per-recipient, expiry, asset, salt, nonce floor). Any agent
-holding a fresh ZK proof against this intent can spend, but only within
-the bounds. Replay-protected via per-proof nullifier. The intent
-commitment shape mirrors [ERC-8150](https://eips.ethereum.org/EIPS/eip-8150)
-(intent-bound transactions) — adapted to Solana's account model and
+Any Groth16 prover that produces valid proofs over our circuits can
+plug into that slot — the on-chain stack is **prover-agnostic**.
+
+A public subset of the prover internals lives at
+[**fractalyze/open-zkx**](https://github.com/fractalyze/open-zkx). The
+production prover (`rabbitsnark` + `zk_dtypes` + `jax*` +
+`zkx-cuda-pjrt`) stays closed; everything in this repo is open.
+
+---
+
+## Two demos
+
+| | `intent` | `bounty` |
+| --- | --- | --- |
+| Constraints | 8.7 k | 14 k (with EdDSA-BabyJubjub) |
+| Statement | Transfer satisfies an owner-signed intent (allowlist + caps + expiry + nullifier) | Same as `intent` + binds proof to an attested `(subject, object, timestamp)` claim |
+| Use case | AI-agent wallets, automated payment policies, spending guardrails | "User U starred repo R at time T" → on-chain bounty payout |
+| Circuit | `circuits/intent/intent.circom` | `circuits/bounty/bounty.circom` |
+
+The intent layer mirrors [ERC-8150](https://eips.ethereum.org/EIPS/eip-8150)
+(intent-bound transactions), adapted to Solana's account model and
 enforced cryptographically rather than by an EVM precompile.
-
-- **Circuit**: `circuits/intent/intent.circom`
-- **Constraints**: 8,726 (small)
-- **Use case**: AI-agent wallets, automated payment policies, cron-bot
-  spending guardrails — anywhere you want cryptographic enforcement of
-  "agent X can spend up to Y to recipients in set Z".
-
-### 2. `bounty` — attested-claim payment
-
-> *Bounty pays out only when an attested off-chain event happened.*
-
-Same intent layer, plus the proof binds to an attested off-chain claim
-(e.g., "GitHub user X starred repo Y"). The attestor signs the claim
-with EdDSA-BabyJubjub (SNARK-native, ~3.5k constraints in-circuit). For
-the demo, **we** are the attestor (server-side check via the public
-GitHub API + sign with our key). For production, swap with Reclaim's
-MPC-attested secp256k1 — same circuit family, different attestor key.
-
-- **Circuit**: `circuits/bounty/bounty.circom`
-- **Constraints**: 16,655
-- **Use case**: web2-attested bounties, sybil-resistant airdrops,
-  reputation-gated grants, conditional payments based on external state.
-
-Both circuits run through the same `gateway` program → CPI into the
-same `verifier-groth16-bn254`. Difference: which VK is registered, and
-what the attestation/intent layer commits to.
-
----
-
-## Real-time pipeline (`bounty` demo)
-
-```
-$ python apps/click_to_paid.py octocat octocat/Hello-World
-
-[1/5] GitHub starred check ✓ user_id=583231 (423 ms)
-[2/5] Build fixture (EdDSA self-sign) ✓ (1085 ms)
-[3/5] Witness gen (C++) ✓ (10 ms)
-[4/5] zkX warm prove ✓ wall=247ms (internal: az/bz=35 ms, proof=119 ms)
-[5/5] Solana tx submit ✓ sig=5uNQpFm3...
-
-  github_check             423 ms     ← real api.github.com call
-  build_input             1085 ms     ← node startup + EdDSA sign
-  witness_gen               10 ms     ← C++ witness, 16k-constraint circuit
-  zk_prove                 247 ms     ← zkX warm GPU prove
-  solana_tx              ~5000 ms     ← per-claim chain ops
-                       ─────────
-  TOTAL                  ~7  s        ← post-onboarding "click to paid"
-```
-
-The ZK proof step itself — the part this whole stack exists to make
-fast — is **247 ms wall (137 ms internal)**, indistinguishable from a
-regular HTTPS round-trip.
-
----
-
-## Verification logic (`bounty`, atomic in one ZK proof)
-
-1. **Attestor signature** (EdDSA-BabyJubjub, ~3.5 k constraints)
-2. **Intent commitment match** (Poseidon-9 over recipients_root, caps,
-   window_start, expiry, asset, salt, vk_id)
-3. **Recipient ∈ allowlist** (Merkle depth-8)
-4. `amount ≤ amount_cap`
-5. `amount ≤ max_per_recipient`
-6. `window_start ≤ now < expiry`
-7. **Per-user-per-claim nullifier** (replay protection)
-8. **SPL Transfer instruction encoding** (binds the proof to the exact
-   on-chain action that will execute)
-
-Reclaim's native `verifyProof` (their on-chain Solana program) does only
-#1. Items 2–8 are what zkx-live adds — composable real-app verification
-logic on attested data, all enforced atomically.
 
 ---
 
 ## Architecture
 
 ```
-┌──────────────────────────────────────────────────────────────┐
-│  Solana on-chain  (deployed on devnet)                       │
-│  ─────────────────────────────────────────────────────────   │
-│   gateway program            3FYPieR6NZiQYGUx9TNeXGWwaV6n... │
-│     └─ CPI ──→ verifier-groth16-bn254                        │
-│                              Hy878UwGsJpw62Kxio3ySbDXQoy21... │
-│        └─ Light Protocol Groth16 verify (~190 k CU)          │
-│   Modular sibling-ix verifiers (SPL, System, …)              │
-└──────────────────────────────────────────────────────────────┘
-                              ▲
-                              │ proof + public inputs
+[ apps/site (Vercel) ]
+        │ /api/{auth,claim,star-state,repo} → BOUNTY_ORIGIN
+        ▼
+[ apps/bounty — Next.js claim orchestrator ]
+        │
+        ├──→ witness    : Node + circom C++ witness binary
+        ├──→ prover     : zkX HTTP API (closed source — see above)
+        └──→ tx_builder : Python, builds + submits Solana tx
                               │
-┌──────────────────────────────────────────────────────────────┐
-│  zkX prover service — Python HTTP, GPU-warm                  │
-│  ─────────────────────────────────────────────────────────   │
-│   POST /prove → witness path → Groth16 proof                 │
-│   Steady state: ~125 ms (16k circuit) — ~240 ms (1.6M)       │
-│   rabbitsnark + JAX/CUDA + zkx-cuda-pjrt                     │
-└──────────────────────────────────────────────────────────────┘
-                              ▲
-                              │ witness
-                              │
-┌──────────────────────────────────────────────────────────────┐
-│  Demo orchestrator — Python                                  │
-│  ─────────────────────────────────────────────────────────   │
-│  intent demo: load fixture → witness → /prove → tx       │
-│  bounty demo:                                           │
-│    1. Verify GitHub starred via public API                   │
-│    2. Self-attestor signs (EdDSA-BabyJubjub)                 │
-│    3. C++ witness gen (8 ms)                                 │
-│    4. POST to zkX prover                                     │
-│    5. Submit Solana tx                                       │
-└──────────────────────────────────────────────────────────────┘
+                              ▼
+        [ Solana on-chain (devnet) ]
+          gateway program        3FYPieR6NZiQYGUx9TNeXGWwaV6ntD6ig2hu9jLi69ZQ
+            └─ CPI ──→ groth16-verifier
+                                 Hy878UwGsJpw62Kxio3ySbDXQoy21dR8JgmFrEv338qj
+                       (Light Protocol Groth16 — ~190 k CU)
 ```
 
-Trust boundaries:
-- **Solana runtime**: trust as usual.
-- **zkX prover**: any prover producing valid Groth16 proofs works.
-  zkX contributes speed, not trust.
-- **Demo attestor**: self-attested (we own the key) for demo simplicity.
-  Production: swap with Reclaim MPC, Opacity TEE, or other distributed
-  attestation network. **Circuit verification logic and on-chain code
-  unchanged** — only the attestor public key changes.
+The gateway is **circuit-agnostic** — register a new VK to plug in a
+new circuit, no on-chain code changes. Per-subject nullifier enforces
+"one claim per (intent, subject)" independent of recipient.
 
----
-
-## How to run
-
-Tooling (already set up in this env):
-- `solana-test-validator`, `solana`, `cargo-build-sbf` (Solana 1.18+ / Anchor 0.31)
-- `circom 2.x`, `node`
-- Python venv with `solders`, `solana`, `rabbitsnark`
-
-One-time setup (clone deps, download pot22, install npm, copy keypairs):
-
-```bash
-./setup.sh
-```
-
-Build on-chain programs:
-
-```bash
-cargo-build-sbf --manifest-path programs/verifier-groth16-bn254/Cargo.toml
-cargo-build-sbf --manifest-path programs/gateway/Cargo.toml
-```
-
-Compile circuits + zkey + C++ witness binary:
-
-```bash
-cd circuits
-# intent
-circom intent/intent.circom --r1cs --wasm -l node_modules -o build/
-./node_modules/.bin/snarkjs groth16 setup build/intent.r1cs ptau/pot22_hez.ptau build/intent_0000.zkey
-./node_modules/.bin/snarkjs zkey contribute build/intent_0000.zkey build/intent_final.zkey -e='snap'
-./node_modules/.bin/snarkjs zkey export verificationkey build/intent_final.zkey build/intent_vk.json
-# bounty
-circom bounty/bounty.circom --r1cs --c -l node_modules -o build/
-./node_modules/.bin/snarkjs groth16 setup build/bounty.r1cs ptau/pot22_hez.ptau build/bounty_0000.zkey
-./node_modules/.bin/snarkjs zkey contribute build/bounty_0000.zkey build/bounty_final.zkey -e='snap'
-./node_modules/.bin/snarkjs zkey export verificationkey build/bounty_final.zkey build/bounty_vk.json
-( cd build/bounty_cpp && make )
-```
-
-Start the witness service (input + witness gen, ~1 s startup):
-
-```bash
-( cd witness && npm install && node witness_service.mjs )
-```
-
-Start the prover service (warm GPU, ~3.5 s startup — see "Prover slot" below):
-
-```bash
-PROVER_ZKEY=$PWD/circuits/build/bounty_final.zkey \
-  python prover/prover.py
-```
-
-Run the apps:
-
-```bash
-# Intent-only e2e
-python apps/demo_pay_intent.py
-
-# Click → bounty paid e2e
-python apps/click_to_paid.py <github_username> <owner/repo>
-```
-
----
-
-## Repo layout
-
-```
-programs/
-  gateway/                          On-chain verify-and-execute gateway
-  verifier-groth16-bn254/           BN254 Groth16 verifier (Light Protocol wrap)
-
-circuits/
-  intent/intent.circom              Demo 1 circuit: intent-bound payment
-  bounty/bounty.circom              Demo 2 circuit: intent + attested claim
-  lib/                              Shared circom libs (merkle, ix encoding)
-  benchmarks/
-    bench_zkx_warm.py               Warm-prover benchmark
-    bench_vanilla_only.js           snarkjs baseline benchmark
-
-witness/                            Node HTTP service (input + witness gen)
-  app.js                            Express entry — listens :7001
-  intent/builder.js                 buildInput() for intent
-  bounty/builder.js                 buildInput() for bounty
-  util.js                           shared helpers (b58, Merkle)
-  package.json                      deps: express, circomlibjs
-
-apps/                               End-to-end orchestrators (HTTP clients)
-  demo_pay_intent.py                Intent-only e2e
-  click_to_paid.py                  Click → bounty paid e2e
-  lib.py                            Shared SDK helpers (validator, deploy,
-                                    VK upload, intent registration, tx submit)
-
-[prover/]                           zkX prover slot — local / proprietary,
-                                    not in this repo. The on-chain stack is
-                                    prover-agnostic; any Groth16 prover that
-                                    produces valid proofs over our circuits
-                                    plugs in here.
-
-programs/<program>/keypair.json     Per-program deploy keypair (deterministic ID).
-                                    ⚠ localnet/testnet only — these keypairs ship
-                                    in the public repo so any clone deploys at the
-                                    same `declare_id!`. Anyone deploying these to
-                                    mainnet would let the world upgrade the program.
-setup.sh                            Clone deps, download ptau, install npm
-```
+Per-folder details: [`programs/`](programs/README.md),
+[`circuits/`](circuits/README.md), [`apps/`](apps/README.md),
+[`witness/`](witness/README.md), [`scripts/`](scripts/README.md),
+[`docker/`](docker/README.md).
 
 ---
 
 ## Production deploy
 
-Split topology — frontend on Vercel, backend on the GPU box:
+Frontend on Vercel, backend on the GPU box behind Tailscale Funnel:
 
 ```
 [ Vercel: apps/site ]
-          │
-          │ /api/auth/* /api/claim /api/star-state
-          │ rewritten to ${BOUNTY_ORIGIN}
-          ▼
-[ This box, exposed via Tailscale Funnel ]
-  ┌───── docker compose ─────┐
-  │ bounty   :3002 (public)  │
-  │ witness  :7001 (internal)│
-  │ tx_builder :7100 (int.)  │
-  └───────────────┬──────────┘
-                  │ host.docker.internal:9090
-                  ▼
-       prover :9090  (host process — closed-source zkX SDK,
-                      can't go in the compose network)
+        │ /api/* → BOUNTY_ORIGIN (Tailscale Funnel URL)
+        ▼
+[ GPU box, docker compose ]
+  bounty :3002 (publish) ── witness :7001 ── tx_builder :7100
+                              host.docker.internal:9090
+                                       │
+                              prover :9090 (host process — closed-source SDK)
 ```
 
-**Why prover stays out of compose:** `prover/requirements.txt` only has
-flask + numpy; the heavy deps (`rabbitsnark`, `zk_dtypes`, `jax*`,
-`zkx-cuda-pjrt`) come from the closed-source zkX SDK and are not on
-PyPI. The compose network reaches it via `host.docker.internal:9090`.
-
-### One-time setup
-
 ```bash
-cp .env.example .env             # fill in GitHub OAuth + COOKIE_SECRET + ATTESTOR_PRIV_HEX
-cp apps/site/.env.production.example apps/site/.env.production
-
+cp .env.example .env             # fill in GitHub OAuth + COOKIE_SECRET
 bash setup.sh                    # circuits + zkeys + program keypairs
-# install zkX SDK into /tmp/zkx-prover-venv (separate, see internal docs)
-```
-
-### Bring the stack up / down
-
-```bash
+# install zkX SDK into /tmp/zkx-guardrail-venv (separate; closed source)
 bash scripts/start.sh            # prover + docker compose + tailscale funnel
 bash scripts/status.sh           # health-check all 4 + funnel URL
-bash scripts/stop.sh             # reverse, in dependency order
 ```
 
-`scripts/start.sh` prints the public URL — paste it into Vercel as
-`BOUNTY_ORIGIN` (Project Settings → Environment Variables → Production)
-and update the GitHub OAuth callback to `${VERCEL_URL}/api/auth/callback`.
+Vercel project: Root Directory `apps/site`, env
+`BOUNTY_ORIGIN=https://<gpu-box>.<tailnet>.ts.net`. Update the GitHub
+OAuth callback to `${VERCEL_URL}/api/auth/callback`. See
+[`scripts/README.md`](scripts/README.md) for SALT rotation +
+service-port table.
 
-### Vercel project
-
-Import the monorepo and set:
-- **Root Directory**: `apps/site`
-- **Build Command**: `next build` (default)
-- **Env**: `BOUNTY_ORIGIN=https://<gpu-box>.<tailnet>.ts.net`
-
-That's it — apps/site is static + a thin reverse-proxy; no backend code
-runs on Vercel.
-
----
-
-## Status
-
-- ✅ Both demos passing on-chain
-- ✅ Long-running zkX prover service (warm steady-state ~140 ms)
-- ✅ Click → bounty paid e2e demo with real GitHub API check
-- ✅ Web frontend (apps/site → Vercel)
-- ✅ Production deploy: docker compose + Tailscale Funnel
-- 🔜 Production: replace self-attestor with Reclaim MPC or Opacity TEE

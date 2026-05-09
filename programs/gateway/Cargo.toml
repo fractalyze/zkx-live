@@ -18,4 +18,4 @@ default = []
 [dependencies]
 anchor-lang = { version = "0.31.1", features = ["init-if-needed"] }
 bytemuck = { version = "1.20", features = ["derive"] }
-verifier-groth16-bn254 = { path = "../verifier-groth16-bn254", features = ["cpi", "no-entrypoint"] }
+groth16-verifier = { path = "../groth16-verifier", features = ["cpi", "no-entrypoint"] }

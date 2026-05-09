@@ -43,7 +43,7 @@ DEFAULT_VK = REPO / "circuits/build/bounty_vk.json"
 SALT = b"\x55" * 32
 NULLIFIER_SEED = b"\x55" * 32
 
-# Bounty circuit metadata (matches programs/verifier-groth16-bn254 and
+# Bounty circuit metadata (matches programs/groth16-verifier and
 # circuits/bounty/bounty.circom).
 SCHEMA_ID = 2          # SCHEMA_SELF_ATTEST (gateway decode unchanged: slots 1,2,3)
 NR_PUBINPUTS = 7       # v3: ERC-8150 minimal + claim_subject (GitHub user_id)

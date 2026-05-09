@@ -1,7 +1,7 @@
 // gateway — V3 universal proof-verified intent execution layer.
 //
 // One Solana program. Verifier-agnostic. CPI dispatches proof verification
-// to a separately-deployed verifier program (e.g. verifier-groth16-bn254).
+// to a separately-deployed verifier program (e.g. groth16-verifier).
 // Then the gateway enforces an ERC-8150-style intent commitment + atomic
 // sibling-instruction policy (modular `verifiers/` reused from V1.7).
 
@@ -454,7 +454,7 @@ fn decode_payment_schema(
     Ok((Pubkey::new_from_array(recipient_bytes), amount))
 }
 
-// Mirror of verifier-groth16-bn254::VerifyOutcome — keep in sync with that
+// Mirror of groth16-verifier::VerifyOutcome — keep in sync with that
 // crate. Defined here to avoid a heavy CPI crate dependency.
 #[derive(AnchorSerialize, AnchorDeserialize, Clone, Debug)]
 struct VerifyOutcome {

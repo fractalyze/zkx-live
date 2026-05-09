@@ -2,7 +2,7 @@
 
 End-to-end flow:
   1. Spin up solana-test-validator --reset
-  2. Deploy gateway + verifier-groth16-bn254 programs
+  2. Deploy gateway + groth16-verifier programs
   3. Set up SPL: mint + source/destination token accounts (via `spl-token` CLI)
   4. Generate a fresh the intent circuit proof binding the destination token
      account as the policy recipient
@@ -74,8 +74,8 @@ def _run(validator: lib.Validator) -> int:
 
     # --- programs ---
     lib.deploy_program(
-        REPO / "target" / "deploy" / "verifier_groth16_bn254.so",
-        REPO / "target" / "deploy" / "verifier_groth16_bn254-keypair.json",
+        REPO / "target" / "deploy" / "groth16_verifier.so",
+        REPO / "target" / "deploy" / "groth16_verifier-keypair.json",
     )
     lib.deploy_program(
         REPO / "target" / "deploy" / "gateway.so",
