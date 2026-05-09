@@ -679,6 +679,11 @@ function ClaimCta({
     }
 
     // Signed in — show recipient input + GitHub-style star button.
+    // Star is required to claim — pressing the action stars on the user's
+    // behalf (step 1 of /api/claim) and then runs the proof flow. Once
+    // the user has starred, the demo treats this as "claimed under this
+    // GitHub account" and the same-account replay path is intentionally
+    // closed (the on-chain nullifier would reject it anyway).
     const recipientReady = recipient.trim().length >= 32;
     const isStarred = starred === true;
     const buttonDisabled = running || !recipientReady || isStarred;

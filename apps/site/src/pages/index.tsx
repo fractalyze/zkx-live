@@ -1,4 +1,3 @@
-import { useEffect, useState } from 'react';
 import { HeroDiagram } from '@/components/HeroDiagram';
 import { PerfCharts, BaselineSnapshots } from '@/components/PerfCharts';
 import { ClaimDemo } from '@/components/ClaimDemo';
@@ -20,7 +19,6 @@ export default function Home() {
     return (
         <div id="top">
             <TopNav />
-            <ThemeTester />
             <main>
                 <Hero />
                 <Performance />
@@ -107,68 +105,6 @@ function Hero() {
     );
 }
 
-/* ----------------------- theme tester ----------------------- */
-
-const UI_THEMES = [
-    { id: 'default', label: 'Default' },
-    { id: 'pulse-benchmark', label: 'Pulse Benchmark' },
-    { id: 'dark-graphite', label: 'Dark Graphite' },
-    { id: 'neon-night', label: 'Neon Night' },
-    { id: 'light-contrast-premium', label: 'Light Contrast Premium' },
-    { id: 'warm-paper', label: 'Warm Paper' },
-    { id: 'mono-minimal', label: 'Mono Minimal' },
-] as const;
-
-type ThemeId = (typeof UI_THEMES)[number]['id'];
-
-function ThemeTester() {
-    const [theme, setTheme] = useState<ThemeId>('default');
-
-    useEffect(() => {
-        const saved = window.localStorage.getItem('zkx-ui-theme') as ThemeId | null;
-        if (saved && UI_THEMES.some((t) => t.id === saved)) {
-            setTheme(saved);
-            if (saved === 'default') document.documentElement.removeAttribute('data-theme');
-            else document.documentElement.setAttribute('data-theme', saved);
-        }
-    }, []);
-
-    function applyTheme(next: ThemeId) {
-        setTheme(next);
-        window.localStorage.setItem('zkx-ui-theme', next);
-        if (next === 'default') document.documentElement.removeAttribute('data-theme');
-        else document.documentElement.setAttribute('data-theme', next);
-    }
-
-    return (
-        <aside className="fixed right-4 bottom-4 z-40 w-[280px] rounded-md border border-rule bg-surface/95 p-3 shadow-sm backdrop-blur">
-            <div className="font-mono text-[11px] uppercase tracking-[0.14em] text-accent">
-                UI/UX Theme Tester
-            </div>
-            <p className="mt-1 text-xs leading-5 text-muted">
-                Instantly switch the look and feel of the entire page.
-            </p>
-            <div className="mt-3 grid grid-cols-1 gap-2">
-                {UI_THEMES.map((item) => (
-                    <button
-                        key={item.id}
-                        type="button"
-                        onClick={() => applyTheme(item.id)}
-                        className={[
-                            'rounded border px-2.5 py-1.5 text-left font-mono text-xs transition',
-                            theme === item.id
-                                ? 'border-accent bg-accentSoft text-accent'
-                                : 'border-rule bg-page text-muted hover:text-ink',
-                        ].join(' ')}
-                    >
-                        {item.label}
-                    </button>
-                ))}
-            </div>
-        </aside>
-    );
-}
-
 /* ----------------------- performance ----------------------- */
 
 function Performance() {
@@ -245,8 +181,11 @@ function Grants() {
 function SectionHeader({
     eyebrow, title, sub,
 }: { eyebrow: string; title: string; sub?: string }) {
+    // Title h2 takes the section's natural width so long headlines (e.g.
+    // "Payment gateway demo powered by real-time proving") stay on one
+    // line on desktop. Sub paragraph keeps a readable max-width.
     return (
-        <div className="max-w-3xl">
+        <div>
             <div className="font-mono text-xs uppercase tracking-[0.14em] text-accent">
                 {eyebrow}
             </div>
@@ -254,7 +193,7 @@ function SectionHeader({
                 {title}
             </h2>
             {sub && (
-                <p className="mt-4 text-base leading-7 text-ink2">{sub}</p>
+                <p className="mt-4 max-w-3xl text-base leading-7 text-ink2">{sub}</p>
             )}
         </div>
     );

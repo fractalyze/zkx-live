@@ -162,8 +162,8 @@ const APP_BASELINES: AppBaseline[] = [
         speedup: '~1.5×',
         baselineName: 'SP1 Hypercube',
         baselineWho:
-            'Succinct Labs\' current production prover for SP1 — what every SP1 deployment runs today ' +
-            'for end-to-end zkVM block proving. No protocol changes: same shard counts, same prover schedule.',
+            'Succinct Labs\' current production prover for SP1. SP1 Hypercube currently holds the fastest ' +
+            'end-to-end block proof latency in zkVM block proving.',
         baselineMs: 10300,
         baselineText: '10.30 s',
         zkxMs: 7000,
