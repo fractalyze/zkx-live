@@ -12,6 +12,7 @@ const nextConfig = {
             { source: '/api/claim',         destination: `${BOUNTY_ORIGIN}/api/claim` },
             { source: '/api/auth/:path*',   destination: `${BOUNTY_ORIGIN}/api/auth/:path*` },
             { source: '/api/star-state',    destination: `${BOUNTY_ORIGIN}/api/star-state` },
+            { source: '/api/repo',          destination: `${BOUNTY_ORIGIN}/api/repo` },
         ];
     },
 };

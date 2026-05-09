@@ -82,15 +82,20 @@ export function ClaimDemo() {
     // so browsers cache the response and refreshes don't see updates promptly.
     // Pass cache: 'no-store' to force a fresh request, and re-fetch when the
     // user comes back to the tab (typical after they (un)star on GitHub).
+    // Fetch via the same-origin /api/repo proxy (server-side cached) instead
+    // of hitting api.github.com directly from the browser. The unauthed GH
+    // limit is 60/hr per IP — a single user refreshing the demo a couple
+    // dozen times burned through their quota and the badge fell back to
+    // "—". The proxy serves all visitors from one IP + 5 min cache.
     useEffect(() => {
         let cancelled = false;
         const refresh = () => {
-            fetch('https://api.github.com/repos/fractalyze/zkx-live', { cache: 'no-store' })
+            fetch('/api/repo')
                 .then(r => r.ok ? r.json() : null)
                 .then(d => {
                     if (cancelled || !d) return;
-                    if (typeof d.stargazers_count === 'number') {
-                        setStars(d.stargazers_count);
+                    if (typeof d.stars === 'number') {
+                        setStars(d.stars);
                     }
                 })
                 .catch(() => {});
