@@ -11,12 +11,10 @@ A real-time ZK payment-gateway demo on Solana, accelerated by **zkX**.
 ## What zkX is
 
 **zkX** is a proof compiler. **PrimeIR** is the optimization layer
-beneath it. Together they compile **prover backends** — taking a
+beneath it. Together they optimize the **prover backend** — taking a
 proving workload (Groth16, zkVM) and lowering it into optimized
 primitive kernels for the target hardware (CPU, GPU, future ZK
-ASIC). Circuits stay user-supplied and untouched; the compiler
-optimizes everything *behind* the proof, not the proof statement
-itself.
+ASIC).
 
 ```
   inputs                 zkX compiler                backends
