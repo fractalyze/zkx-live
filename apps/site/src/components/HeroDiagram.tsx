@@ -88,7 +88,7 @@ export function HeroDiagram() {
             <svg
                 viewBox={`0 0 ${W} ${H}`}
                 role="img"
-                aria-label="zkx compiler stack: circom, zkVM, and custom circuits flow into the zkx core (PrimeIR plus optimization passes), which lowers to CPU, GPU, and future ZK ASIC backends to produce real-time proofs"
+                aria-label="zkx compiler stack: circom, zkVM, and custom circuits enter the zkx core (PrimeIR plus backend lowering passes) and are compiled down onto CPU, GPU, and future ZK ASIC prover backends. Circuits are user-supplied and untouched; zkx optimizes the backend, not the circuit."
                 className="hidden w-full text-ink md:block"
             >
                 <defs>

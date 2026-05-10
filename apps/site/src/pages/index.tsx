@@ -81,7 +81,7 @@ function Hero() {
                     ZKX + PrimeIR: compiler stack for real-time proving.
                 </h1>
                 <p className="mx-auto mt-6 max-w-prose text-pretty text-lg leading-7 text-ink2">
-                    ZKX is our proof compiler, and PrimeIR is the optimization layer beneath it. Instead of hand-tuning each proving flow, this stack compiles circuits and proving workloads into optimized primitive kernels across schemes and hardware targets.
+                    ZKX is our proof compiler, and PrimeIR is the optimization layer beneath it. Instead of hand-tuning each prover backend, this stack compiles proving workloads into optimized primitive kernels across schemes and hardware targets. Circuits stay user-supplied and untouched — the optimization happens behind the proof, not in the proof statement.
                 </p>
                 <p className="mx-auto mt-4 max-w-prose text-pretty text-base leading-7 text-muted">
                     The benchmark sections below show the kernel-level gains (FFT, IFFT, MSM, SMCS, LOGUP GKR) and the application-level outcomes (Groth16 prove, zkVM block proof). The payment gateway demo shows what this means in product terms: proof generation fast enough for real user-facing flows.
@@ -114,7 +114,7 @@ function Performance() {
                 <SectionHeader
                     eyebrow="Performance"
                     title="Primitive kernel benchmarks"
-                    sub="Compiler-level kernel improvements from ZKX + PrimeIR, measured on FFT, IFFT, MSM, SMCS, and LOGUP GKR."
+                    sub="Backend kernel improvements from ZKX + PrimeIR, measured on FFT, IFFT, MSM, SMCS, and LOGUP GKR. The user-supplied circuit is unchanged — the speedup comes from how zkx lowers the prove pipeline onto the GPU."
                 />
                 <div className="mt-10">
                     <PerfCharts />
