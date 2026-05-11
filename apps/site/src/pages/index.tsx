@@ -187,23 +187,12 @@ function HowItWorks() {
                     title="An XLA for ZK."
                     sub="ZK proving today looks like ML did around 2015 — every scheme has its own hand-tuned prover, and every new (scheme × hardware) combination is a fresh manual optimization round."
                 />
-                <div className="mt-8 max-w-3xl space-y-5 text-base leading-7 text-ink2">
-                    <p>
-                        <span className="font-semibold text-ink">ML solved this with XLA.</span> TensorFlow, PyTorch, and JAX stopped emitting hand-tuned CUDA kernels and started emitting an IR that XLA lowers to whatever hardware target you bring. The result: PyTorch + XLA on a GPU often beats hand-written CUDA C++, because the compiler sees the whole computation graph and the manual writer only sees one kernel at a time.
-                    </p>
-                    <p>
-                        <span className="font-semibold text-ink">ZKX takes the same path for ZK</span> — and it's not a loose analogy. We build on the <span className="font-semibold text-ink">same IR infrastructure</span> (StableHLO + HLO) and add a ZK-specific dialect (PrimeIR) on top. The compiler ingests circom, SP1, or any custom circuit, lowers through algebraic rewrite + kernel fusion + layout assignment, and emits an optimized prover backend per (scheme × hardware) target.
-                    </p>
-                    <p>
-                        Both domains hit the same wall: ZK proving and ML training are both <span className="font-semibold text-ink">memory-bound</span> on modern GPUs. The compiler optimizations that won for XLA — fusion, layout, scheduling — are the same ones that move the needle here.
-                    </p>
-                </div>
-                <div className="mt-10">
+                <p className="mt-6 max-w-3xl text-base leading-7 text-ink2">
+                    <span className="font-semibold text-ink">ZKX is a compiler stack for ZK proving</span> — the same shape ML adopted with XLA, applied to ZK. Same IR infrastructure (<span className="font-mono text-ink">StableHLO + HLO</span>) with a ZK-specific dialect, <span className="font-mono text-ink">PrimeIR</span>, on top. Both domains hit the same wall — modern GPU proving and modern GPU training are both memory-bound — so the compiler wins (whole-graph fusion, layout, scheduling) carry over.
+                </p>
+                <div className="mt-8">
                     <HowItWorksDiagram />
                 </div>
-                <p className="mt-6 max-w-3xl text-sm text-muted">
-                    The benchmarks below are what comes out the other end: kernel-level wins (FFT, MSM, LOGUP GKR) and end-to-end application wins against the prover each category currently calls SOTA.
-                </p>
             </div>
         </section>
     );
