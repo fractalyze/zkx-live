@@ -1,4 +1,5 @@
 import { HeroDiagram } from '@/components/HeroDiagram';
+import { HowItWorksDiagram } from '@/components/HowItWorksDiagram';
 import { PerfCharts, BaselineSnapshots } from '@/components/PerfCharts';
 import { ClaimDemo } from '@/components/ClaimDemo';
 import { GrantLogos } from '@/components/GrantLogos';
@@ -21,6 +22,7 @@ export default function Home() {
             <TopNav />
             <main>
                 <Hero />
+                <HowItWorks />
                 <Performance />
                 <SystemBenchmarks />
                 <Demo />
@@ -46,10 +48,10 @@ function TopNav() {
                     </span>
                 </a>
                 <nav className="flex items-center gap-5 font-mono text-xs text-muted">
+                    <a href="#how-it-works" className="hover:text-ink">how it works</a>
                     <a href="#performance" className="hover:text-ink">performance</a>
-                    <a href="#system-benchmarks" className="hover:text-ink">applications</a>
                     <a href="#demo" className="hover:text-ink">demo</a>
-                    <a href="#grants" className="hidden hover:text-ink sm:inline">grants</a>
+                    <a href="#certified" className="hidden hover:text-ink sm:inline">certified</a>
                     <a
                         href="https://github.com/fractalyze/open-zkx"
                         target="_blank"
@@ -105,6 +107,41 @@ function Hero() {
     );
 }
 
+/* ----------------------- how it works ----------------------- */
+
+function HowItWorks() {
+    return (
+        <section id="how-it-works" className="border-b border-rule bg-page">
+            <div className="mx-auto max-w-page px-6 py-20 lg:px-10 lg:py-24">
+                <SectionHeader
+                    eyebrow="How it works"
+                    title="An XLA for ZK."
+                    sub="ZK proving today looks like ML did around 2015 — every scheme has its own hand-tuned prover, and every new (scheme × hardware) combination is a fresh manual optimization round."
+                />
+                <div className="mt-8 grid gap-10 lg:grid-cols-[1.05fr_1fr] lg:gap-12">
+                    <div className="space-y-5 text-base leading-7 text-ink2">
+                        <p>
+                            <span className="font-semibold text-ink">ML solved this with XLA.</span> TensorFlow, PyTorch, and JAX stopped emitting hand-tuned CUDA kernels and started emitting an IR that XLA lowers to whatever hardware target you bring. The result: PyTorch + XLA on a GPU often beats hand-written CUDA C++, because the compiler sees the whole computation graph and the manual writer only sees one kernel at a time.
+                        </p>
+                        <p>
+                            <span className="font-semibold text-ink">zkX takes the same path for ZK.</span> PrimeIR is the IR. The compiler ingests circom, SP1, or any custom circuit, lowers through algebraic rewrite + kernel fusion + layout assignment + lowering passes, and emits an optimized prover backend per (scheme × hardware) target.
+                        </p>
+                        <p>
+                            The two domains share the same constraint: ZK proving and ML training are both <span className="font-semibold text-ink">memory-bound</span> on modern GPUs. The compiler optimizations that won for XLA — fusion, layout, scheduling — are the same ones that move the needle here.
+                        </p>
+                        <p className="text-sm text-muted">
+                            The benchmarks below are what comes out the other end: kernel-level wins (FFT, MSM, LOGUP GKR) and end-to-end application wins against the prover each category currently calls SOTA.
+                        </p>
+                    </div>
+                    <div>
+                        <HowItWorksDiagram />
+                    </div>
+                </div>
+            </div>
+        </section>
+    );
+}
+
 /* ----------------------- performance ----------------------- */
 
 function Performance() {
@@ -147,8 +184,8 @@ function Demo() {
             <div className="mx-auto max-w-page px-6 py-20 lg:px-10 lg:py-24">
                 <SectionHeader
                     eyebrow="Live demo"
-                    title="Payment gateway demo powered by real-time proving"
-                    sub="From user intent to on-chain settlement: zkx generates proofs fast enough to fit normal product latency."
+                    title="Bridge real-world events to on-chain in real-time."
+                    sub="Check how fast a real-world activity can land on-chain. Star a GitHub repo → zkx generates the proof → Solana settles the payout, all in seconds."
                 />
                 <div className="mx-auto mt-10 max-w-3xl">
                     <ClaimDemo />
@@ -162,11 +199,11 @@ function Demo() {
 
 function Grants() {
     return (
-        <section id="grants" className="border-b border-rule">
+        <section id="certified" className="border-b border-rule">
             <div className="mx-auto max-w-page px-6 py-20 lg:px-10 lg:py-24">
                 <SectionHeader
-                    eyebrow="Grants"
-                    title="Built with support from."
+                    eyebrow="Certified by"
+                    title="Backed by top-tier programs."
                 />
                 <div className="mt-12">
                     <GrantLogos />
