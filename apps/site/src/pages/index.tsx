@@ -192,10 +192,10 @@ function HowItWorks() {
                         <span className="font-semibold text-ink">ML solved this with XLA.</span> TensorFlow, PyTorch, and JAX stopped emitting hand-tuned CUDA kernels and started emitting an IR that XLA lowers to whatever hardware target you bring. The result: PyTorch + XLA on a GPU often beats hand-written CUDA C++, because the compiler sees the whole computation graph and the manual writer only sees one kernel at a time.
                     </p>
                     <p>
-                        <span className="font-semibold text-ink">ZKX takes the same path for ZK.</span> PrimeIR is the IR. The compiler ingests circom, SP1, or any custom circuit, lowers through algebraic rewrite + kernel fusion + layout assignment + lowering passes, and emits an optimized prover backend per (scheme × hardware) target.
+                        <span className="font-semibold text-ink">ZKX takes the same path for ZK</span> — and it's not a loose analogy. We build on the <span className="font-semibold text-ink">same IR infrastructure</span> (StableHLO + HLO) and add a ZK-specific dialect (PrimeIR) on top. The compiler ingests circom, SP1, or any custom circuit, lowers through algebraic rewrite + kernel fusion + layout assignment, and emits an optimized prover backend per (scheme × hardware) target.
                     </p>
                     <p>
-                        The two domains share the same constraint: ZK proving and ML training are both <span className="font-semibold text-ink">memory-bound</span> on modern GPUs. The compiler optimizations that won for XLA — fusion, layout, scheduling — are the same ones that move the needle here.
+                        Both domains hit the same wall: ZK proving and ML training are both <span className="font-semibold text-ink">memory-bound</span> on modern GPUs. The compiler optimizations that won for XLA — fusion, layout, scheduling — are the same ones that move the needle here.
                     </p>
                 </div>
                 <div className="mt-10">
