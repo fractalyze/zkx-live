@@ -386,7 +386,7 @@ function LiveSignalStrip({
 function FlowDiagram() {
     const stages: { x: number; icon: 'star' | 'lock' | 'chain' | 'coin'; title: string; sub: string }[] = [
         { x:  40, icon: 'star',  title: 'you star',         sub: 'the repo' },
-        { x: 220, icon: 'lock',  title: 'zkx makes proof',  sub: 'of your action' },
+        { x: 220, icon: 'lock',  title: 'ZKX makes proof',  sub: 'of your action' },
         { x: 400, icon: 'chain', title: 'proof on-chain',   sub: 'gateway verifies' },
         { x: 580, icon: 'coin',  title: 'you get paid',     sub: '0.01 SOL' },
     ];
@@ -397,7 +397,7 @@ function FlowDiagram() {
             <svg
                 viewBox={`0 0 ${W} 170`}
                 role="img"
-                aria-label="Four-stage flow: you click star, zkx generates a proof of your action, the proof is submitted on-chain where the gateway verifies it, then 0.01 SOL is paid to your recipient."
+                aria-label="Four-stage flow: you click star, ZKX generates a proof of your action, the proof is submitted on-chain where the gateway verifies it, then 0.01 SOL is paid to your recipient."
                 className="block w-full"
             >
                 {/* Off-chain / on-chain lane labels at the top */}

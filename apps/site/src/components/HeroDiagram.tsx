@@ -88,7 +88,7 @@ export function HeroDiagram() {
             <svg
                 viewBox={`0 0 ${W} ${H}`}
                 role="img"
-                aria-label="zkx compiler stack: circom, zkVM, and custom circuits enter the zkx core (PrimeIR plus backend lowering passes) and are compiled down onto CPU, GPU, and future ZK ASIC prover backends."
+                aria-label="ZKX compiler stack: circom, zkVM, and custom circuits enter the ZKX core (PrimeIR plus backend lowering passes) and are compiled down onto CPU, GPU, and future ZK ASIC prover backends."
                 className="hidden w-full text-ink md:block"
             >
                 <defs>
@@ -160,7 +160,7 @@ export function HeroDiagram() {
                         fontWeight="700"
                         letterSpacing="0.04em"
                     >
-                        zkx
+                        ZKX
                     </text>
                     <text
                         x={coreX + 56} y={coreY + 26}
@@ -278,7 +278,7 @@ function DiagramStackedHTML() {
                         rel="noreferrer"
                         className="font-mono text-lg font-semibold hover:underline"
                     >
-                        zkx ↗
+                        ZKX ↗
                     </a>
                     <span className="font-mono text-[11px] opacity-70">open-zkx</span>
                 </div>

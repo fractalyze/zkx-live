@@ -213,7 +213,7 @@ export function BaselineSnapshots() {
             {/* Lede — establishes the framing before the cards land */}
             <p className="mb-6 max-w-3xl text-base leading-7 text-ink2">
                 The two provers the ZK industry currently calls fastest in
-                their categories. zkx is faster than both — same workload,
+                their categories. ZKX is faster than both — same workload,
                 same hardware, no protocol changes.
             </p>
             <div className="grid gap-5 lg:grid-cols-2">

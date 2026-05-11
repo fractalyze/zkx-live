@@ -1,146 +1,131 @@
 /*
- * Two-row before/after analogy showing the parallel between ML pre/post
- * XLA and ZK pre/post zkX. Pure HTML/Tailwind — no SVG positioning math.
+ * Two side-by-side hourglass stacks. Mirrors the canonical XLA diagram
+ * (frontends → IR waist → backends) and shows the same shape applied to
+ * ZK. The IR waist is the only accent-colored element — it's the
+ * "compiler in the middle" the whole pitch hangs on.
  *
- * Layout (md+): 2 columns, 2 rows.
+ * Visual structure (md+):
  *
- *               BEFORE COMPILER            AFTER COMPILER
- *   ML  ┌──────────────────────┐    ┌──────────────────────┐
- *       │ TF/PyTorch/JAX       │    │ TF/PyTorch/JAX       │
- *       │   ↓                  │    │   ↓                  │
- *       │ hand-written CUDA    │    │ XLA                  │
- *       │   ↓                  │    │   ↓                  │
- *       │ GPU                  │    │ GPU · TPU · ASIC     │
- *       └──────────────────────┘    └──────────────────────┘
+ *      ML side                            ZK side
+ *   ─────────                          ─────────
+ *   TF  PT  JAX                        Groth16  zkVM  circom
+ *      ↘ ↓ ↙                              ↘ ↓ ↙
+ *      ┌──────┐                         ┌────────┐
+ *      │ XLA  │  ←  accent              │  ZKX   │  ←  accent
+ *      │ HLO  │                         │PrimeIR │
+ *      └──────┘                         └────────┘
+ *      ↙ ↓ ↘                              ↙ ↓ ↘
+ *   CPU GPU TPU                         CPU GPU ASIC
  *
- *   ZK  ┌──────────────────────┐    ┌──────────────────────┐
- *       │ Groth16/zkVM/circom  │    │ Groth16/zkVM/circom  │
- *       │   ↓                  │    │   ↓                  │
- *       │ hand-tuned prover    │    │ zkX + PrimeIR        │
- *       │ (Gnark, ICICLE, …)   │    │   ↓                  │
- *       │   ↓                  │    │ CPU · GPU · ASIC     │
- *       │ GPU                  │    │                      │
- *       └──────────────────────┘    └──────────────────────┘
- *
- * Below md it falls back to a single column (4 stacked panels).
+ * Below md the two sides stack vertically.
  */
 import type { ReactNode } from 'react';
+
+type Side = {
+    title: string;
+    inputs: string[];
+    waist: { primary: string; secondary: string };
+    outputs: string[];
+    note?: string;
+};
+
+const ML_SIDE: Side = {
+    title: 'ML — today',
+    inputs: ['TensorFlow', 'PyTorch', 'JAX'],
+    waist: { primary: 'XLA', secondary: 'StableHLO · HLO' },
+    outputs: ['CPU', 'GPU', 'TPU'],
+    note: 'Frameworks emit a portable IR; XLA lowers it to whatever hardware you bring.',
+};
+
+const ZK_SIDE: Side = {
+    title: 'ZK — with ZKX',
+    inputs: ['Groth16', 'zkVM', 'circom / custom'],
+    waist: { primary: 'ZKX', secondary: 'PrimeIR' },
+    outputs: ['CPU', 'GPU', 'ASIC'],
+    note: 'Same shape: schemes emit PrimeIR; ZKX lowers per (scheme × hardware) target.',
+};
 
 export function HowItWorksDiagram() {
     return (
         <div className="rounded-lg border border-rule bg-page p-4 sm:p-6">
-            {/* Column headers — only on md+ */}
-            <div className="hidden grid-cols-[80px_1fr_1fr] gap-4 pb-3 text-center font-mono text-[11px] uppercase tracking-[0.16em] text-faint md:grid">
-                <span />
-                <span>Without compiler</span>
-                <span>With compiler</span>
+            <div className="grid grid-cols-1 gap-6 lg:grid-cols-2 lg:gap-10">
+                <Hourglass side={ML_SIDE} />
+                <Hourglass side={ZK_SIDE} accentWaist />
             </div>
-
-            <div className="grid grid-cols-1 gap-3 md:grid-cols-[80px_1fr_1fr] md:gap-4">
-                {/* ML row */}
-                <RowLabel>ML</RowLabel>
-                <Panel
-                    era="~2015"
-                    inputs={['TensorFlow', 'PyTorch', 'JAX']}
-                    middle="hand-written CUDA"
-                    outputs={['GPU']}
-                />
-                <Panel
-                    era="today"
-                    inputs={['TensorFlow', 'PyTorch', 'JAX']}
-                    middle="XLA"
-                    middleAccent
-                    outputs={['GPU · TPU · ASIC']}
-                />
-
-                {/* ZK row */}
-                <RowLabel>ZK</RowLabel>
-                <Panel
-                    era="today"
-                    inputs={['Groth16', 'zkVM', 'circom / custom']}
-                    middle="hand-tuned prover"
-                    middleSub="Gnark · ICICLE · SP1 · …"
-                    outputs={['GPU']}
-                />
-                <Panel
-                    era="with zkX"
-                    inputs={['Groth16', 'zkVM', 'circom / custom']}
-                    middle="zkX + PrimeIR"
-                    middleAccent
-                    outputs={['CPU · GPU · ASIC']}
-                />
-            </div>
-
-            <p className="mt-4 max-w-prose text-sm leading-6 text-muted">
-                Same pattern, ten years apart. The ML world stopped
-                hand-writing CUDA and started lowering through XLA — PyTorch
-                + XLA on a GPU now routinely beats hand-written CUDA C++,
-                because the compiler sees the whole computation graph and
-                the manual writer only sees one kernel at a time. zkX is
-                the equivalent move for ZK proving.
+            <p className="mt-5 text-xs leading-5 text-muted">
+                <span className="font-semibold text-ink">Hourglass shape:</span>{' '}
+                many input frameworks converge on a single IR, then fan
+                out to multiple hardware targets. The compiler in the
+                middle is the value-capture layer — it sees the whole
+                graph at once, where a hand-written kernel only sees
+                itself.
             </p>
         </div>
     );
 }
 
-function RowLabel({ children }: { children: ReactNode }) {
+function Hourglass({ side, accentWaist = false }: { side: Side; accentWaist?: boolean }) {
     return (
-        <div className="flex items-center justify-start font-mono text-sm font-semibold uppercase tracking-[0.14em] text-ink2 md:justify-end md:pr-2">
-            {children}
-        </div>
-    );
-}
-
-function Panel({
-    era, inputs, middle, middleSub, middleAccent, outputs,
-}: {
-    era: string;
-    inputs: string[];
-    middle: string;
-    middleSub?: string;
-    middleAccent?: boolean;
-    outputs: string[];
-}) {
-    return (
-        <div className="rounded-md border border-rule bg-surface p-4">
-            <div className="mb-2 flex items-center justify-between">
-                <span className="font-mono text-[10px] uppercase tracking-[0.18em] text-faint">
-                    {era}
-                </span>
+        <div className="flex flex-col items-stretch">
+            {/* Section title */}
+            <div className="mb-3 text-center font-mono text-[11px] uppercase tracking-[0.18em] text-faint">
+                {side.title}
             </div>
-            <Stack items={inputs} small />
-            <Arrow />
+
+            {/* Top row — frontends fan-in */}
+            <Row items={side.inputs} />
+
+            {/* Funnel-in arrows */}
+            <Funnel direction="in" />
+
+            {/* IR waist — the compiler layer (single column, accent for ZKX) */}
             <div
                 className={[
-                    'rounded border px-3 py-2 text-center font-mono text-sm font-semibold',
-                    middleAccent
-                        ? 'border-accent bg-accentSoft text-accent'
-                        : 'border-rule bg-page text-ink',
+                    'mx-auto w-[60%] min-w-[160px] rounded border-2 px-4 py-3 text-center',
+                    accentWaist
+                        ? 'border-accent bg-accentSoft'
+                        : 'border-ink/30 bg-surface',
                 ].join(' ')}
             >
-                {middle}
-                {middleSub && (
-                    <div className="mt-0.5 font-mono text-[10px] font-normal text-muted">
-                        {middleSub}
-                    </div>
-                )}
+                <div
+                    className={[
+                        'font-mono text-base font-bold tracking-wide',
+                        accentWaist ? 'text-accent' : 'text-ink',
+                    ].join(' ')}
+                >
+                    {side.waist.primary}
+                </div>
+                <div className="mt-0.5 font-mono text-[10px] uppercase tracking-[0.14em] text-muted">
+                    {side.waist.secondary}
+                </div>
             </div>
-            <Arrow />
-            <Stack items={outputs} />
+
+            {/* Funnel-out arrows */}
+            <Funnel direction="out" />
+
+            {/* Bottom row — backends fan-out */}
+            <Row items={side.outputs} />
+
+            {side.note && (
+                <p className="mt-4 text-center text-[11px] leading-5 text-muted">
+                    {side.note}
+                </p>
+            )}
         </div>
     );
 }
 
-function Stack({ items, small }: { items: string[]; small?: boolean }) {
+function Row({ items }: { items: string[] }) {
+    // Equal-width chips so the funnel arrows below land symmetrically.
     return (
-        <div className="space-y-1">
+        <div
+            className="grid items-stretch gap-2"
+            style={{ gridTemplateColumns: `repeat(${items.length}, minmax(0, 1fr))` }}
+        >
             {items.map((it) => (
                 <div
                     key={it}
-                    className={[
-                        'rounded border border-rule bg-page px-3 py-1.5 text-center font-mono',
-                        small ? 'text-xs text-muted' : 'text-sm text-ink',
-                    ].join(' ')}
+                    className="rounded border border-rule bg-surface px-2 py-2 text-center font-mono text-xs text-ink"
                 >
                     {it}
                 </div>
@@ -149,6 +134,43 @@ function Stack({ items, small }: { items: string[]; small?: boolean }) {
     );
 }
 
-function Arrow() {
-    return <div className="my-2 text-center font-mono text-xs text-faint">↓</div>;
+/*
+ * SVG funnel — a tiny inline triangle of converging (or diverging) lines.
+ * Drawn at a fixed viewBox so it scales with the column width without
+ * needing measurement of the row above. Stroke matches the page's
+ * hairline border color via currentColor on the muted text class.
+ */
+function Funnel({ direction }: { direction: 'in' | 'out' }) {
+    const lines: { x1: number; y1: number; x2: number; y2: number }[] = [];
+    const W = 200, H = 28;
+    const fanXs = [10, W / 2, W - 10];        // outer-left, center, outer-right
+    const waist = W / 2;
+    for (const x of fanXs) {
+        lines.push(
+            direction === 'in'
+                ? { x1: x, y1: 2,    x2: waist, y2: H - 2 }
+                : { x1: waist, y1: 2, x2: x,    y2: H - 2 }
+        );
+    }
+    return (
+        <svg
+            viewBox={`0 0 ${W} ${H}`}
+            preserveAspectRatio="none"
+            className="my-1 h-7 w-full text-faint"
+            aria-hidden
+        >
+            {lines.map((l, i) => (
+                <line
+                    key={i}
+                    x1={l.x1} y1={l.y1} x2={l.x2} y2={l.y2}
+                    stroke="currentColor"
+                    strokeWidth="1"
+                />
+            ))}
+        </svg>
+    );
 }
+
+// Keep the export name + signature stable for the import in pages/index.tsx.
+// Underscore-export so unused-export linters don't complain about ReactNode.
+export type _ = ReactNode;

@@ -1,3 +1,4 @@
+import { useEffect, useState } from 'react';
 import { HeroDiagram } from '@/components/HeroDiagram';
 import { HowItWorksDiagram } from '@/components/HowItWorksDiagram';
 import { PerfCharts, BaselineSnapshots } from '@/components/PerfCharts';
@@ -35,33 +36,101 @@ export default function Home() {
 
 /* ----------------------- top nav ----------------------- */
 
+const NAV_LINKS: { href: string; label: string; external?: boolean }[] = [
+    { href: '#how-it-works', label: 'how it works' },
+    { href: '#performance', label: 'performance' },
+    { href: '#demo', label: 'demo' },
+    { href: '#certified', label: 'certified' },
+    { href: 'https://github.com/fractalyze/open-zkx', label: 'github ↗', external: true },
+];
+
 function TopNav() {
+    const [open, setOpen] = useState(false);
+
+    // Close the mobile sheet when the user follows a link or hits Escape.
+    useEffect(() => {
+        if (!open) return;
+        const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') setOpen(false); };
+        window.addEventListener('keydown', onKey);
+        return () => window.removeEventListener('keydown', onKey);
+    }, [open]);
+
     return (
         <header className="sticky top-0 z-30 border-b border-rule bg-page/85 backdrop-blur">
             <div className="mx-auto flex h-12 max-w-page items-center justify-between px-6 lg:px-10">
                 <a href="#top" className="flex items-baseline gap-2 no-underline">
                     <span className="font-mono text-base font-semibold tracking-tight text-ink">
-                        zkx
+                        ZKX
                     </span>
                     <span className="hidden font-mono text-[11px] text-faint sm:inline">
-                        — real-time ZK proofs, accelerated by zkx
+                        — real-time ZK proofs, accelerated by ZKX
                     </span>
                 </a>
-                <nav className="flex items-center gap-5 font-mono text-xs text-muted">
-                    <a href="#how-it-works" className="hover:text-ink">how it works</a>
-                    <a href="#performance" className="hover:text-ink">performance</a>
-                    <a href="#demo" className="hover:text-ink">demo</a>
-                    <a href="#certified" className="hidden hover:text-ink sm:inline">certified</a>
-                    <a
-                        href="https://github.com/fractalyze/open-zkx"
-                        target="_blank"
-                        rel="noreferrer"
-                        className="hover:text-ink"
-                    >
-                        github ↗
-                    </a>
+
+                {/* Desktop nav (md+) */}
+                <nav className="hidden items-center gap-5 font-mono text-xs text-muted md:flex">
+                    {NAV_LINKS.map((l) => (
+                        <a
+                            key={l.href}
+                            href={l.href}
+                            target={l.external ? '_blank' : undefined}
+                            rel={l.external ? 'noreferrer' : undefined}
+                            className="hover:text-ink"
+                        >
+                            {l.label}
+                        </a>
+                    ))}
                 </nav>
+
+                {/* Mobile hamburger (below md) */}
+                <button
+                    type="button"
+                    aria-label={open ? 'Close menu' : 'Open menu'}
+                    aria-expanded={open}
+                    aria-controls="mobile-nav"
+                    onClick={() => setOpen((v) => !v)}
+                    className="md:hidden -mr-2 inline-flex h-9 w-9 items-center justify-center rounded text-ink hover:bg-surface"
+                >
+                    <svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.5" aria-hidden>
+                        {open ? (
+                            <>
+                                <line x1="4"  y1="4"  x2="16" y2="16" />
+                                <line x1="16" y1="4"  x2="4"  y2="16" />
+                            </>
+                        ) : (
+                            <>
+                                <line x1="3" y1="6"  x2="17" y2="6" />
+                                <line x1="3" y1="10" x2="17" y2="10" />
+                                <line x1="3" y1="14" x2="17" y2="14" />
+                            </>
+                        )}
+                    </svg>
+                </button>
             </div>
+
+            {/* Mobile drop-down sheet */}
+            {open && (
+                <nav
+                    id="mobile-nav"
+                    className="border-t border-rule bg-page/95 px-6 py-4 backdrop-blur md:hidden"
+                >
+                    <ul className="flex flex-col gap-3 font-mono text-sm text-muted">
+                        {NAV_LINKS.map((l) => (
+                            <li key={l.href}>
+                                <a
+                                    href={l.href}
+                                    target={l.external ? '_blank' : undefined}
+                                    rel={l.external ? 'noreferrer' : undefined}
+                                    onClick={() => setOpen(false)}
+                                    className="block py-1 hover:text-ink"
+                                >
+                                    {l.label}
+                                </a>
+                            </li>
+                        ))}
+                    </ul>
+                </nav>
+            )}
         </header>
     );
 }
@@ -77,7 +146,7 @@ function Hero() {
         <section id="hero" className="border-b border-rule">
             <div className="mx-auto max-w-page px-6 pt-14 pb-20 text-center lg:px-10 lg:pt-20 lg:pb-28">
                 <div className="font-mono text-xs uppercase tracking-[0.14em] text-faint">
-                    fractalyze · zkx compiler
+                    fractalyze · ZKX compiler
                 </div>
                 <h1 className="mt-4 text-balance text-4xl font-semibold leading-[1.1] tracking-tight text-ink sm:text-5xl lg:text-[52px] lg:leading-[1.05]">
                     ZKX + PrimeIR: compiler stack for real-time proving.
@@ -118,25 +187,23 @@ function HowItWorks() {
                     title="An XLA for ZK."
                     sub="ZK proving today looks like ML did around 2015 — every scheme has its own hand-tuned prover, and every new (scheme × hardware) combination is a fresh manual optimization round."
                 />
-                <div className="mt-8 grid gap-10 lg:grid-cols-[1.05fr_1fr] lg:gap-12">
-                    <div className="space-y-5 text-base leading-7 text-ink2">
-                        <p>
-                            <span className="font-semibold text-ink">ML solved this with XLA.</span> TensorFlow, PyTorch, and JAX stopped emitting hand-tuned CUDA kernels and started emitting an IR that XLA lowers to whatever hardware target you bring. The result: PyTorch + XLA on a GPU often beats hand-written CUDA C++, because the compiler sees the whole computation graph and the manual writer only sees one kernel at a time.
-                        </p>
-                        <p>
-                            <span className="font-semibold text-ink">zkX takes the same path for ZK.</span> PrimeIR is the IR. The compiler ingests circom, SP1, or any custom circuit, lowers through algebraic rewrite + kernel fusion + layout assignment + lowering passes, and emits an optimized prover backend per (scheme × hardware) target.
-                        </p>
-                        <p>
-                            The two domains share the same constraint: ZK proving and ML training are both <span className="font-semibold text-ink">memory-bound</span> on modern GPUs. The compiler optimizations that won for XLA — fusion, layout, scheduling — are the same ones that move the needle here.
-                        </p>
-                        <p className="text-sm text-muted">
-                            The benchmarks below are what comes out the other end: kernel-level wins (FFT, MSM, LOGUP GKR) and end-to-end application wins against the prover each category currently calls SOTA.
-                        </p>
-                    </div>
-                    <div>
-                        <HowItWorksDiagram />
-                    </div>
+                <div className="mt-8 max-w-3xl space-y-5 text-base leading-7 text-ink2">
+                    <p>
+                        <span className="font-semibold text-ink">ML solved this with XLA.</span> TensorFlow, PyTorch, and JAX stopped emitting hand-tuned CUDA kernels and started emitting an IR that XLA lowers to whatever hardware target you bring. The result: PyTorch + XLA on a GPU often beats hand-written CUDA C++, because the compiler sees the whole computation graph and the manual writer only sees one kernel at a time.
+                    </p>
+                    <p>
+                        <span className="font-semibold text-ink">ZKX takes the same path for ZK.</span> PrimeIR is the IR. The compiler ingests circom, SP1, or any custom circuit, lowers through algebraic rewrite + kernel fusion + layout assignment + lowering passes, and emits an optimized prover backend per (scheme × hardware) target.
+                    </p>
+                    <p>
+                        The two domains share the same constraint: ZK proving and ML training are both <span className="font-semibold text-ink">memory-bound</span> on modern GPUs. The compiler optimizations that won for XLA — fusion, layout, scheduling — are the same ones that move the needle here.
+                    </p>
                 </div>
+                <div className="mt-10">
+                    <HowItWorksDiagram />
+                </div>
+                <p className="mt-6 max-w-3xl text-sm text-muted">
+                    The benchmarks below are what comes out the other end: kernel-level wins (FFT, MSM, LOGUP GKR) and end-to-end application wins against the prover each category currently calls SOTA.
+                </p>
             </div>
         </section>
     );
@@ -168,7 +235,7 @@ function SystemBenchmarks() {
                 <SectionHeader
                     eyebrow="Applications"
                     title="We beat the industry's fastest provers."
-                    sub="Two end-to-end workloads drive most production GPU prover cost — Groth16 STARK→SNARK wrapping and zkVM block proving. zkx is faster than the prover each category currently calls SOTA."
+                    sub="Two end-to-end workloads drive most production GPU prover cost — Groth16 STARK→SNARK wrapping and zkVM block proving. ZKX is faster than the prover each category currently calls SOTA."
                 />
                 <div className="mt-8">
                     <BaselineSnapshots />
@@ -185,7 +252,7 @@ function Demo() {
                 <SectionHeader
                     eyebrow="Live demo"
                     title="Bridge real-world events to on-chain in real-time."
-                    sub="Check how fast a real-world activity can land on-chain. Star a GitHub repo → zkx generates the proof → Solana settles the payout, all in seconds."
+                    sub="Check how fast a real-world activity can land on-chain. Star a GitHub repo → ZKX generates the proof → Solana settles the payout, all in seconds."
                 />
                 <div className="mx-auto mt-10 max-w-3xl">
                     <ClaimDemo />
