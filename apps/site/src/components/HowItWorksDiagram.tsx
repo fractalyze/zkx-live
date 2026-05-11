@@ -1,72 +1,92 @@
 /*
- * Rosetta-stone table — ML ↔ ZK layer-by-layer correspondence.
+ * Side-by-side comparison: ZK proving today (no compiler) vs ZK with
+ * ZKX. Each row picks one dimension where the contrast is sharpest —
+ * the "with ZKX" column should read as the obviously-better option to
+ * a ZK-native who has never seen XLA.
  *
- * Different visual idiom from the hero diagram (which is a flow-shaped
- * stack picture of zkx itself). This table answers "why is this the
- * right architecture for ZK" by showing that every layer of the ZK side
- * lines up with an existing, validated layer in the ML compiler stack.
- *
- * The compiler row (XLA / ZKX) is the focal one — that's the value-
- * capture layer of both ecosystems. Accent-colored on the ZK column.
+ * The compiler row (the value-capture layer) is accent-tinted on the
+ * ZKX side. A small footer line points at XLA as a precedent for the
+ * same shape — useful context if the reader knows ML, harmless if not.
  */
 import type { ReactNode } from 'react';
 
 type Row = {
-    layer: string;        // left-most label
-    ml: ReactNode;        // ML side
-    zk: ReactNode;        // ZK side
-    accent?: boolean;     // highlight the ZK cell + background tint
+    layer: string;
+    today: ReactNode;
+    zkx: ReactNode;
+    accent?: boolean;
 };
 
 const ROWS: Row[] = [
     {
         layer: 'frontends',
-        ml: 'TensorFlow · PyTorch · JAX',
-        zk: 'Groth16 · zkVM · circom',
+        today: (
+            <span>
+                <span className="text-muted">per scheme, isolated —</span> Groth16, zkVM, circom each ship their own prover
+            </span>
+        ),
+        zkx: (
+            <span>
+                Unified ingest — Groth16, zkVM, circom feed the same pipeline
+            </span>
+        ),
     },
     {
         layer: 'IR',
-        ml: 'StableHLO · HLO',
-        zk: 'PrimeIR · StableHLO · HLO',
+        today: <span className="text-muted">None — each prover has its own internals</span>,
+        zkx: <span>PrimeIR · StableHLO · HLO</span>,
     },
     {
         layer: 'compiler',
-        ml: 'XLA',
-        zk: 'ZKX',
+        today: <span className="text-muted">None — kernels are written by hand</span>,
+        zkx: <span>ZKX — whole-graph fusion, layout, scheduling</span>,
         accent: true,
     },
     {
+        layer: 'optimization cost',
+        today: (
+            <span>
+                <span className="text-muted">N × M</span> hand-tuned implementations (per scheme × hardware)
+            </span>
+        ),
+        zkx: (
+            <span>
+                <span className="text-muted">N + M</span> — add a frontend or backend, the cross is automated
+            </span>
+        ),
+    },
+    {
         layer: 'backends',
-        ml: 'CPU · GPU · TPU',
-        zk: 'CPU · GPU · ASIC',
+        today: <span className="text-muted">Per-prover (Gnark → CPU, ICICLE → GPU, SP1 → GPU, …)</span>,
+        zkx: <span>CPU · GPU · ASIC (one compiler, any target)</span>,
     },
     {
-        layer: 'bottleneck',
-        ml: <span className="text-muted">memory-bound</span>,
-        zk: <span className="text-muted">memory-bound</span>,
-    },
-    {
-        layer: 'manual cost (no compiler)',
-        ml: <span className="text-muted">N × M hand-tuned kernels</span>,
-        zk: <span className="text-muted">N × M hand-tuned provers</span>,
+        layer: 'memory bound',
+        today: <span className="text-muted">tuned by hand, kernel by kernel</span>,
+        zkx: <span className="text-muted">tuned by the compiler, end-to-end</span>,
     },
 ];
 
 export function HowItWorksDiagram() {
     return (
         <div className="overflow-hidden rounded-xl border border-rule bg-page">
-            {/* Header band — column titles */}
+            {/* Header band */}
             <div className="grid grid-cols-[140px_1fr_1fr] border-b border-rule bg-surface/60">
                 <HeaderCell />
-                <HeaderCell label="ML — today" />
+                <HeaderCell label="ZK — today" />
                 <HeaderCell label="ZK — with ZKX" accent />
             </div>
 
             {/* Body rows */}
-            <div role="table" aria-label="ML ↔ ZK layer correspondence">
+            <div role="table" aria-label="ZK proving without and with ZKX">
                 {ROWS.map((row, i) => (
                     <BodyRow key={row.layer} row={row} last={i === ROWS.length - 1} />
                 ))}
+            </div>
+
+            {/* Footer — soft XLA precedent line for readers who know ML */}
+            <div className="border-t border-rule bg-surface/40 px-5 py-3 text-center font-mono text-[11px] text-faint">
+                ML hit the same pattern around 2017 — XLA solved it there.
             </div>
         </div>
     );
@@ -90,29 +110,24 @@ function BodyRow({ row, last }: { row: Row; last: boolean }) {
         <div
             role="row"
             className={[
-                'grid grid-cols-[140px_1fr_1fr] items-center',
+                'grid grid-cols-[140px_1fr_1fr] items-start',
                 last ? '' : 'border-b border-rule',
                 row.accent ? 'bg-accentSoft/60' : 'bg-page',
             ].join(' ')}
         >
-            {/* layer label */}
             <div className="px-5 py-4 font-mono text-[11px] uppercase tracking-[0.14em] text-faint">
                 {row.layer}
             </div>
-
-            {/* ML cell */}
-            <div className="border-l border-rule px-5 py-4 font-mono text-sm text-ink">
-                {row.ml}
+            <div className="border-l border-rule px-5 py-4 font-mono text-sm leading-6 text-ink">
+                {row.today}
             </div>
-
-            {/* ZK cell — accent variant gets bold + accent color */}
             <div
                 className={[
-                    'border-l border-rule px-5 py-4 font-mono text-sm',
+                    'border-l border-rule px-5 py-4 font-mono text-sm leading-6',
                     row.accent ? 'font-bold text-accent' : 'text-ink',
                 ].join(' ')}
             >
-                {row.zk}
+                {row.zkx}
             </div>
         </div>
     );
