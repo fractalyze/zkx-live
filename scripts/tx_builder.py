@@ -40,7 +40,7 @@ from solana.rpc.api import Client  # noqa: E402
 
 # Same SALT / SCHEMA_ID as scripts/setup-onchain.py — must match for the
 # intent_pda derivation to match what setup-onchain.py registered.
-SALT = b"\x55" * 32                  # v5 salt (matches setup-onchain.py v5)
+SALT = b"\x56" * 32                  # v6 salt (matches setup-onchain.py v6)
 SCHEMA_ID = 2
 
 PORT = int(os.environ.get("TX_BUILDER_PORT", "7100"))
