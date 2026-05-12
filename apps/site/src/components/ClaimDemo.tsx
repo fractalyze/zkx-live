@@ -235,6 +235,23 @@ export function ClaimDemo() {
                             key: StepKey; state: StepState; timing_ms?: number;
                         };
                         setSteps((s) => ({ ...s, [key]: { state, timing_ms } }));
+                        // The /api/repo cache is 5 min — without busting it
+                        // the just-starred count would only show up minutes
+                        // later. As soon as the auto-star step finishes,
+                        // optimistic +1 for instant feedback, plus a
+                        // refresh=1 fetch to make the server cache truthful.
+                        if (key === 'star' && state === 'done') {
+                            setStars((n) => (typeof n === 'number' ? n + 1 : n));
+                            setStarred(true);
+                            fetch('/api/repo?refresh=1')
+                                .then((r) => r.ok ? r.json() : null)
+                                .then((d) => {
+                                    if (d && typeof d.stars === 'number') {
+                                        setStars(d.stars);
+                                    }
+                                })
+                                .catch(() => {});
+                        }
                     } else if (evt.event === 'done') {
                         setResult(evt.data as ClaimResult);
                     } else if (evt.event === 'error') {

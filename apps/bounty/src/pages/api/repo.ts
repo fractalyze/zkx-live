@@ -26,12 +26,20 @@ type RepoCache = {
 let cache: RepoCache | null = null;
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
-    // Browser caches separately — keep it fresh-ish but don't hammer:
-    // the response is identical for all visitors, 60s SWR is fine.
-    res.setHeader('Cache-Control', 'public, max-age=60, stale-while-revalidate=300');
+    // ?refresh=1 bypasses both server cache and browser cache. Used by
+    // the claim demo right after a successful auto-star, so the new
+    // star count shows up immediately instead of waiting up to 5 min
+    // for the cache to expire.
+    const refresh = req.query.refresh === '1';
+    res.setHeader(
+        'Cache-Control',
+        refresh
+            ? 'no-store, max-age=0'
+            : 'public, max-age=60, stale-while-revalidate=300',
+    );
 
     const now = Date.now();
-    if (cache && now - cache.fetchedAt < CACHE_TTL_MS) {
+    if (!refresh && cache && now - cache.fetchedAt < CACHE_TTL_MS) {
         res.status(200).json(cache.body);
         return;
     }
